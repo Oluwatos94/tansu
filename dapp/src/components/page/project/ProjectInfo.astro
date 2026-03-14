@@ -292,16 +292,16 @@ import Button from "components/utils/Button";
           const hasMapping =
             configData &&
             Array.isArray(configData.maintainersAddresses) &&
-            Array.isArray(configData.authorHandles) &&
+            Array.isArray(configData.authorGithubNames) &&
             configData.maintainersAddresses.length ===
-              configData.authorHandles.length;
+              configData.authorGithubNames.length;
 
           // Build address→handle map (order-independent)
           let addrToHandle: Record<string, string> = {};
           if (hasMapping && configData) {
             for (let i = 0; i < configData.maintainersAddresses.length; i++) {
               addrToHandle[configData.maintainersAddresses[i]!] =
-                configData.authorHandles[i] || "";
+                configData.authorGithubNames[i] || "";
             }
           }
 
@@ -628,14 +628,6 @@ import Button from "components/utils/Button";
           );
           if (latestCommitEl) {
             (latestCommitEl as HTMLElement).style.display = "none";
-          }
-
-          // Hide CommitHistory component
-          const commitHistoryEl = document.querySelector(
-            '[data-component="CommitHistory"]',
-          );
-          if (commitHistoryEl) {
-            (commitHistoryEl as HTMLElement).style.display = "none";
           }
 
           // Hide contribution metrics section

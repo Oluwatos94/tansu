@@ -64,11 +64,11 @@ const CommitHistory = () => {
       const cfg = loadConfigData();
       if (
         configData &&
-        configData.authorHandles &&
-        Array.isArray(configData.authorHandles) &&
-        configData.authorHandles.length > 0
+        configData.authorGithubNames &&
+        Array.isArray(configData.authorGithubNames) &&
+        configData.authorGithubNames.length > 0
       ) {
-        const authorList = configData.authorHandles
+        const authorList = configData.authorGithubNames
           .map((name) =>
             name && typeof name === "string" ? name.toLowerCase() : "",
           )

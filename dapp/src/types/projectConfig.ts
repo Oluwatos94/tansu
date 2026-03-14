@@ -20,7 +20,7 @@ export interface ConfigData {
     telegram: string;
     discord: string;
   };
-  authorHandles: string[];
+  authorGithubNames: string[];
   maintainersAddresses: string[];
   readmeContent?: string;
 }

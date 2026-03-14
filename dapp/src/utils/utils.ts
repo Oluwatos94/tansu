@@ -29,11 +29,6 @@ export function extractConfigData(tomlData: any, project: Project) {
   const fullName = tomlData.DOCUMENTATION?.ORG_DBA || project.name;
   const projectType = tomlData.PROJECT_TYPE || "SOFTWARE";
 
-  const authorHandles =
-    tomlData.PRINCIPALS?.map(
-      (p: { github?: string; handle?: string }) => p.handle || p.github || "",
-    ) || [];
-
   return {
     projectName: project.name,
     projectFullName: fullName,
@@ -59,9 +54,9 @@ export function extractConfigData(tomlData: any, project: Project) {
         discord: tomlData.DOCUMENTATION.ORG_DISCORD,
       }),
     },
-    authorHandles: authorHandles,
+    authorGithubNames:
+      tomlData.PRINCIPALS?.map((p: { github: string }) => p.github) || [],
     maintainersAddresses: tomlData.ACCOUNTS || [],
-    readmeContent: tomlData.README_CONTENT || undefined,
   };
 }
 

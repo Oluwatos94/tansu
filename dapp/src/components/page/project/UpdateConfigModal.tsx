@@ -85,7 +85,7 @@ const UpdateConfigModal = () => {
 
     setMaintainerAddresses(projectInfo.maintainers);
     setMaintainerGithubs(
-      cfg?.authorHandles || projectInfo.maintainers.map(() => ""),
+      cfg?.authorGithubNames || projectInfo.maintainers.map(() => ""),
     );
     setGithubRepoUrl(projectInfo.config.url);
     setProjectName(projectInfo.name || "");

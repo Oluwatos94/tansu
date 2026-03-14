@@ -271,7 +271,7 @@ const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
     const ghErrors = maintainerGithubs.map((gh) => {
       if (!gh || gh.trim() === "") {
         isValid = false;
-        return "Handle is required";
+        return "GitHub handle is required";
       }
       if (!ghRegex.test(gh)) {
         isValid = false;
@@ -347,7 +347,7 @@ ORG_URL="${orgUrl}"
 ORG_LOGO="${orgLogo}"
 ORG_DESCRIPTION="${orgDescription}"${projectType === ProjectType.SOFTWARE ? `\nORG_GITHUB="${githubRepoUrl.split("https://github.com/")[1] || ""}"` : ""}
 
-${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\nhandle="${gh}"`).join("\n\n")}
+${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
 `;
 
       const tomlFile = new File([tomlContent], "tansu.toml", {
@@ -679,10 +679,7 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\nhandle="${gh}"`).join("\n\n")}
                           className="flex-1"
                           value={maintainerGithubs[i] ?? ""}
                           {...(i == 0 && {
-                            label:
-                              projectType === ProjectType.SOFTWARE
-                                ? "GitHub Handle"
-                                : "Handle",
+                            label: "GitHub Handle",
                           })}
                           placeholder="username"
                           onChange={(e) => {
@@ -845,7 +842,7 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\nhandle="${gh}"`).join("\n\n")}
                       onChange={(e) => {
                         setReadmeContent(e.target.value);
                       }}
-                      description="Provide documentation for your non-software project. Markdown formatting is supported."
+                      description="Provide documentation for your non-software project."
                     />
                   )}
                 </div>

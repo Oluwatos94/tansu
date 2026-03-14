@@ -192,7 +192,7 @@ const ProjectList = () => {
               githubLink: project.config.url,
             },
             socialLinks: {},
-            authorHandles: [],
+            authorGithubNames: [],
             maintainersAddresses: project.maintainers,
           };
           setConfigInfo(configData);
@@ -241,7 +241,7 @@ const ProjectList = () => {
     organizationName: "",
     officials: { githubLink: project.config.url },
     socialLinks: {},
-    authorHandles: [],
+    authorGithubNames: [],
     maintainersAddresses: project.maintainers,
   });
 
