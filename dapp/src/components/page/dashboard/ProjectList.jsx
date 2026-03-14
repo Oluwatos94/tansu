@@ -456,7 +456,9 @@ const ProjectList = () => {
       )}
 
       {showCreateProjectModal && (
-        <CreateProjectModal onClose={closeCreateProjectModal} />
+        <div className="project-modal-container">
+          <CreateProjectModal onClose={closeCreateProjectModal} />
+        </div>
       )}
 
       {showMemberProfileModal && memberResult && (
