@@ -577,7 +577,7 @@ import Button from "components/utils/Button";
           websiteUrl: configData?.officials?.websiteLink,
         };
 
-        // Set up commit data for LastHashModal - only for SOFTWARE projects
+        // Set up commit data for LastHashModal - only for a SOFTWARE project
         const isSoftwareProject = configData?.projectType === "SOFTWARE";
         if (isSoftwareProject) {
           const latestSha = loadProjectLatestSha();
