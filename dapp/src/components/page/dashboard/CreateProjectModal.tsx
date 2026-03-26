@@ -324,7 +324,6 @@ const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
     const [{ fetchTomlFromIpfs }] = await Promise.all([
       import("utils/ipfsFunctions"),
     ]);
-    const { loadedPublicKey } = await import("@service/walletService");
 
     try {
       const publicKey = loadedPublicKey();
