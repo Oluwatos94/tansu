@@ -19,6 +19,7 @@ ifndef wasm-scf_membership
 endif
 
 override tansu_id = $(shell cat .stellar/tansu_id-$(network))
+override scf_membership_id = $(shell cat .stellar/scf_membership_id-$(network))
 
 override domain_contract_id_mainnet = $(shell cat .stellar/soroban_domain_id-mainnet)
 override domain_contract_id = $(shell cat .stellar/soroban_domain_id-$(network))
@@ -119,7 +120,7 @@ contract_bindings: contract_build  ## Create bindings
 	cd ../.. && \
 	bun format
 
-contract_deploy:  ## Deploy Soroban contract to testnet
+contract_deploy:  ## Deploy Soroban contract
 	stellar contract deploy \
   		--wasm $(wasm) \
   		--source-account $(admin) \
@@ -325,3 +326,60 @@ nqg:
 	  -- \
 	  get_voting_power_for_user \
 	  --user $(admin)
+
+# --------- NFT --------- #
+
+contract_deploy_nft:  ## Deploy NFT contract
+	stellar contract deploy \
+  		--wasm $(wasm-scf_membership) \
+  		--source-account $(admin) \
+  		--network $(network) \
+  		--salt $(shell printf scf-nft | openssl sha256 | cut -d " " -f2) \
+  		--inclusion-fee 200000000 \
+  		--cost \
+  		-- \
+  		--admin $(shell stellar keys address $(admin)) \
+  		--name "SCF Membership" --symbol scf \
+  		--uri https://ipfs.io/ipfs/bafybeihfqx4pstq4au6ueuzj4ns2ovmw237zfh2z2qvz6rxssdjzlnpcna \
+  		--uri_trait https://ipfs.io/ipfs/Qmddf2UgGTQ3z2SZfg2ziZJzDJDRS3Dk7Z3phZ76fMzdLf \
+  		--nqg_contract $(nqg_contract_id) \
+  		> .stellar/scf_membership_id-$(network) && \
+  	cat .stellar/scf_membership_id-$(network)
+
+contract_upgrade_nft: contract_build  ## After manually pulling the wasm from the pipeline, use it to propose to update the contract
+	stellar contract invoke \
+    	--source-account $(admin) \
+    	--network $(network) \
+    	--id $(scf_membership_id) \
+    	-- \
+    	upgrade \
+		--wasm_hash $(shell stellar contract upload --source-account $(admin) --network $(network) --wasm $(wasm-scf_membership))
+
+contract_nft_mint:
+	stellar contract invoke \
+	  --source-account $(admin) \
+	  --network testnet \
+	  --id $(scf_membership_id) \
+	  -- \
+	  mint \
+	  --to $(admin)
+
+contract_nft_role:
+	stellar contract invoke \
+	  --source-account $(admin) \
+	  --network testnet \
+	  --id $(scf_membership_id) \
+	  -- \
+	  set_trait \
+	  --token_id 0 \
+	  --trait_key role \
+	  --new_value 3
+
+contract_nft_governance:
+	stellar contract invoke \
+	  --source-account $(admin) \
+	  --network testnet \
+	  --id $(scf_membership_id) \
+	  -- \
+	  governance \
+	  --token_id 1

@@ -93,7 +93,10 @@ fn get_nqg(e: &Env, token_id: u32) -> i128 {
         &Symbol::new(e, "get_voting_power_for_user"),
         vec![e, owner.to_string().to_val()],
     );
-    let nqg: I256 = r.map_err(|_| 0).unwrap().unwrap();
+    let nqg: I256 = match r {
+        Ok(Ok(v)) => v,
+        _ => I256::from_i128(e, 0),
+    };
     let scaled = nqg.div(&I256::from_i128(e, 10_i128.pow(12)));
     scaled.to_i128().unwrap()
 }

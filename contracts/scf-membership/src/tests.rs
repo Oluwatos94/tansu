@@ -4,7 +4,7 @@ use crate::{SCFMembership, SCFMembershipClient, errors, types};
 
 mod nqg {
     use super::*;
-    use soroban_sdk::{I256, contract, contractimpl, contracttype};
+    use soroban_sdk::{I256, contract, contractimpl, contracttype, panic_with_error};
 
     #[contracttype]
     pub enum DataKey {
@@ -24,7 +24,7 @@ mod nqg {
             if user == pilot {
                 I256::from_i128(e, 10_000_000_000_000_000_000i128)
             } else {
-                I256::from_i32(e, 1)
+                panic_with_error!(e, errors::NonFungibleTokenError::NqgContractError);
             }
         }
     }
