@@ -31,8 +31,9 @@ const VotingModal: React.FC<VotersModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [voteError, setVoteError] = useState<string | null>(null);
-  const [maxWeight, setMaxWeight] = useState<number>(1);
-  const [selectedWeight, setSelectedWeight] = useState<number>(1);
+  const [maxWeight, setMaxWeight] = useState<number>(0);
+  const [selectedWeight, setSelectedWeight] = useState<number>(0);
+  const isInsufficientVotingPower = maxWeight <= 0;
 
   useEffect(() => {
     let ignore = false;
@@ -51,14 +52,22 @@ const VotingModal: React.FC<VotersModalProps> = ({
         });
 
         if (!ignore) {
-          const weight = Number(weightTx.result) || 1;
+          const parsedWeight = Number(weightTx.result);
+          const weight = Number.isFinite(parsedWeight)
+            ? Math.max(0, Math.round(parsedWeight))
+            : 0;
           setMaxWeight(weight);
           setSelectedWeight(weight);
+          if (weight <= 0) {
+            setVoteError(
+              "You don't have the required minimal voting power to cast a vote.",
+            );
+          }
         }
       } catch {
         if (!ignore) {
-          setMaxWeight(1);
-          setSelectedWeight(1);
+          setMaxWeight(0);
+          setSelectedWeight(0);
         }
       }
     };
@@ -71,6 +80,13 @@ const VotingModal: React.FC<VotersModalProps> = ({
   }, [projectName, proposalId]);
 
   const validateVote = (): boolean => {
+    if (isInsufficientVotingPower) {
+      setVoteError(
+        "You don't have the required minimal voting power to cast a vote.",
+      );
+      return false;
+    }
+
     if (!selectedOption) {
       setVoteError("You must select one option to vote");
       return false;
@@ -89,6 +105,9 @@ const VotingModal: React.FC<VotersModalProps> = ({
     setVoteError(null);
     return true;
   };
+
+  const votingPowerPercentage =
+    maxWeight > 0 ? Math.round((selectedWeight / maxWeight) * 100) : 0;
 
   const handleVote = async () => {
     if (!validateVote()) return;
@@ -194,23 +213,35 @@ const VotingModal: React.FC<VotersModalProps> = ({
                 </label>
                 <input
                   type="range"
-                  min="1"
+                  min="0"
                   max="100"
-                  value={Math.round((selectedWeight / maxWeight) * 100)}
+                  value={votingPowerPercentage}
+                  disabled={isInsufficientVotingPower}
                   onChange={(e) => {
                     const percentage = Number(e.target.value);
+                    if (maxWeight <= 0) {
+                      setSelectedWeight(0);
+                      return;
+                    }
                     setSelectedWeight(
-                      Math.max(1, Math.round((percentage / 100) * maxWeight)),
+                      Math.round((percentage / 100) * maxWeight),
                     );
                   }}
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-primary"
                   style={{
-                    background: `linear-gradient(to right, #7c3aed 0%, #7c3aed ${Math.round((selectedWeight / maxWeight) * 100)}%, #e5e7eb ${Math.round((selectedWeight / maxWeight) * 100)}%, #e5e7eb 100%)`,
+                    background: `linear-gradient(to right, #7c3aed 0%, #7c3aed ${votingPowerPercentage}%, #e5e7eb ${votingPowerPercentage}%, #e5e7eb 100%)`,
                   }}
                 />
-                <p className="text-xs text-secondary">
-                  Slide to adjust your voting power
-                </p>
+                {isInsufficientVotingPower ? (
+                  <p className="text-xs text-red-500">
+                    You don't have the required minimal voting power to cast a
+                    vote.
+                  </p>
+                ) : (
+                  <p className="text-xs text-secondary">
+                    Slide to adjust your voting power
+                  </p>
+                )}
               </div>
             </div>
 
@@ -221,6 +252,7 @@ const VotingModal: React.FC<VotersModalProps> = ({
                 </Button>
                 <Button
                   isLoading={isLoading}
+                  disabled={isInsufficientVotingPower}
                   onClick={() => !isLoading && handleVote()}
                 >
                   Vote

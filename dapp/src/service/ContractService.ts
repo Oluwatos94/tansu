@@ -146,7 +146,10 @@ export async function voteToProposal(
       });
       // Check for simulation errors (contract errors)
       checkSimulationError(weightTx);
-      weight = Number(weightTx.result) || 1;
+      const parsedWeight = Number(weightTx.result);
+      weight = Number.isFinite(parsedWeight)
+        ? Math.max(0, Math.round(parsedWeight))
+        : 1;
     } catch {
       // Default weight
     }
