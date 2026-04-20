@@ -154,6 +154,13 @@ Locally we can test using the Netlify CLI:
 2. Verify the active target: `bun run netlify:status`
 3. Deploy: `bun run netlify:deploy`
 
+Netlify UI settings required for cloud builds (both projects):
+
+- Base directory: `dapp`
+- Build command: `bun run build`
+- Publish directory: `dist`
+- Configuration file path: `dapp/netlify.toml`
+
 Once on Netlify on production, the dApp can be deployed on IPFS:
 
 1. Trigger the dApp IPFS deployment workflow.

@@ -1,5 +1,5 @@
 [build]
-  # This file is in dapp/, so build relative to this directory.
-  base = "."
+  # In this monorepo, build from the dapp directory.
+  base = "dapp"
   command = "bun run build"
   publish = "dist"
