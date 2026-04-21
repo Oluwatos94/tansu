@@ -21,13 +21,14 @@ const ProposalList: React.FC = () => {
   const fetchProposalPages = async () => {
     try {
       if (projectName) {
-        const normalizedTotalPage = Math.max(
+        const contractTotalPage = Math.max(
           1,
           (await getProposalPages(projectName)) ?? 1,
         );
-        setTotalPage(normalizedTotalPage);
+        const uiTotalPage = Math.max(1, Math.ceil(contractTotalPage / 2));
+        setTotalPage(uiTotalPage);
         setCurrentPage((previousPage) =>
-          Math.min(Math.max(previousPage, 0), normalizedTotalPage - 1),
+          Math.min(Math.max(previousPage, 0), uiTotalPage - 1),
         );
       }
     } catch (err: any) {
@@ -39,7 +40,22 @@ const ProposalList: React.FC = () => {
     if (projectName) {
       setIsLoading(true);
       try {
-        const proposals = (await getProposals(projectName, _page)) || [];
+        const contractTotalPage = Math.max(
+          1,
+          (await getProposalPages(projectName)) ?? 1,
+        );
+        const latestContractPage = contractTotalPage - 1 - _page * 2;
+        const contractPagesToFetch = [
+          latestContractPage,
+          latestContractPage - 1,
+        ].filter((page) => page >= 0);
+
+        const proposals = (
+          await Promise.all(
+            contractPagesToFetch.map((page) => getProposals(projectName, page)),
+          )
+        ).flatMap((pageProposals) => pageProposals ?? []);
+
         const updatedProposalData = proposals
           .map((proposal) => {
             return modifyProposalToView(proposal, projectName);
