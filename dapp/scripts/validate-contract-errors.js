@@ -41,7 +41,7 @@ function validateContractErrorMapping() {
 
     console.log("🔍 Validating contract error mapping...");
     console.log(
-      `📊 Bindings have ${bindingKeys.length} error codes: [${bindingKeys.join(", ")}]`,
+      `📊 Bindings  have ${bindingKeys.length} error codes: [${bindingKeys.join(", ")}]`,
     );
     console.log(
       `📊 Constants have ${constantKeys.length} error codes: [${constantKeys.join(", ")}]`,
@@ -50,7 +50,7 @@ function validateContractErrorMapping() {
     // Check count mismatch
     if (bindingKeys.length !== constantKeys.length) {
       console.error(
-        `❌ COUNT MISMATCH: Bindings have ${bindingKeys.length} errors, constants have ${constantKeys.length} errors`,
+        `❌ Bindings  have ${bindingKeys.length} errors, constants have ${constantKeys.length} errors`,
       );
       process.exit(1);
     }

@@ -21,7 +21,10 @@ const ProposalList: React.FC = () => {
   const fetchProposalPages = async () => {
     try {
       if (projectName) {
-        const normalizedTotalPage = Math.max(1, (await getProposalPages(projectName)) ?? 1);
+        const normalizedTotalPage = Math.max(
+          1,
+          (await getProposalPages(projectName)) ?? 1,
+        );
         setTotalPage(normalizedTotalPage);
         setCurrentPage((previousPage) =>
           Math.min(Math.max(previousPage, 0), normalizedTotalPage - 1),
