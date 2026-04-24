@@ -890,6 +890,51 @@ impl DaoTrait for Tansu {
         proposal
     }
 
+    /// Recompute and persist aggregate anonymous vote tallies for `stellarpga`.
+    ///
+    /// This migration is intentionally scoped to the `stellarpga` project only.
+    /// Proposal IDs are `0..DaoTotalProposals` for that project. It is idempotent.
+    ///
+    /// # Arguments
+    /// * `env` - The environment object
+    /// * `admin` - Admin address authorized to run migrations
+    ///
+    /// # Panics
+    /// * If `admin` is not authorized
+    /// * If migration invariants are violated
+    fn migrate_stellarpga_vote_tallies(env: Env, admin: Address) {
+        crate::contract_tansu::auth_admin(&env, &admin);
+
+        let project_name = String::from_str(&env, "stellarpga");
+        let project_key: Bytes = env.crypto().keccak256(&project_name.to_bytes()).into();
+
+        let total: u32 = env
+            .storage()
+            .persistent()
+            .get(&types::ProjectKey::DaoTotalProposals(project_key.clone()))
+            .unwrap_or(0);
+
+        let mut proposal_id: u32 = 0;
+        while proposal_id < total {
+            let all_votes = get_all_votes(&env, &project_key, proposal_id);
+            let mut rebuilt_tallies =
+                types::VoteTallies::AnonymousVote(Tansu::build_commitments_from_votes(
+                    env.clone(),
+                    project_key.clone(),
+                    vec![&env, 0u128, 0u128, 0u128],
+                    vec![&env, 0u128, 0u128, 0u128],
+                ));
+
+            for vote_ in all_votes.iter() {
+                update_proposal_tallies(&env, &mut rebuilt_tallies, &vote_);
+            }
+            env.storage().persistent().set(
+                &types::ProjectKey::ProposalTallies(project_key.clone(), proposal_id),
+                &rebuilt_tallies,
+            );
+            proposal_id += 1;
+        }
+    }
 }
 
 /// Load all persisted votes for a proposal.
@@ -900,7 +945,7 @@ impl DaoTrait for Tansu {
 /// * `proposal_id` - The ID of the proposal to load votes for
 ///
 /// # Returns
-/// * `Vec<types::Vote>` - All votes found for the proposal
+/// * `Vec<types::Vote>` - All votes of the proposal
 fn get_all_votes(env: &Env, project_key: &Bytes, proposal_id: u32) -> Vec<types::Vote> {
     let mut votes = Vec::new(env);
     let voters = env
