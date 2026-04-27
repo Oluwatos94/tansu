@@ -889,42 +889,6 @@ impl DaoTrait for Tansu {
         proposal.vote_data.votes = get_all_votes(&env, &project_key, proposal_id);
         proposal
     }
-
-    /// Recompute and persist aggregate anonymous vote tallies for one `stellarpga` proposal.
-    ///
-    /// This migration is intentionally scoped to the `stellarpga` project only.
-    /// Proposal IDs are `0..DaoTotalProposals` for that project. It is idempotent.
-    ///
-    /// # Arguments
-    /// * `env` - The environment object
-    /// * `admin` - Admin address authorized to run migrations
-    ///
-    /// # Panics
-    /// * If `admin` is not authorized
-    /// * If migration invariants are violated
-    fn migrate_stellarpga_vote_tallies(env: Env, admin: Address, proposal_id: u32) {
-        crate::contract_tansu::auth_admin(&env, &admin);
-
-        let project_name = String::from_str(&env, "stellarpga");
-        let project_key: Bytes = env.crypto().keccak256(&project_name.to_bytes()).into();
-
-        let all_votes = get_all_votes(&env, &project_key, proposal_id);
-        let mut rebuilt_tallies =
-            types::VoteTallies::AnonymousVote(Tansu::build_commitments_from_votes(
-                env.clone(),
-                project_key.clone(),
-                vec![&env, 0u128, 0u128, 0u128],
-                vec![&env, 0u128, 0u128, 0u128],
-            ));
-
-        for vote_ in all_votes.iter() {
-            update_proposal_tallies(&env, &mut rebuilt_tallies, &vote_);
-        }
-        env.storage().persistent().set(
-            &types::ProjectKey::ProposalTallies(project_key.clone(), proposal_id),
-            &rebuilt_tallies,
-        );
-    }
 }
 
 /// Load all persisted votes for a proposal.
