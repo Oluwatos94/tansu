@@ -483,7 +483,7 @@ import Button from "components/utils/Button";
         );
 
         if (readMoreWrapper) {
-          readMoreWrapper.style.display = isSoftwareProject ? "" : "none";
+          readMoreWrapper.style.display = "";
         }
         if (lastHashWrapper) {
           lastHashWrapper.style.display = isSoftwareProject ? "" : "none";
@@ -675,6 +675,13 @@ import Button from "components/utils/Button";
           githubUrl:
             configData?.officials?.githubLink || projectInfo.config.url,
           websiteUrl: configData?.officials?.websiteLink,
+          ...(isSoftwareProject
+            ? {}
+            : {
+                readmeContent:
+                  configData?.readmeContent ??
+                  "No README available for this project.",
+              }),
         };
 
         if (isSoftwareProject) {
