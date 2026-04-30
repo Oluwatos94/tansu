@@ -16,7 +16,6 @@ interface ReadMoreModalProps {
     logoImageLink: string;
     githubUrl: string;
     websiteUrl?: string;
-    readmeContent?: string;
   };
 }
 
@@ -62,14 +61,7 @@ const ReadMoreModal: FC<ReadMoreModalProps> = ({
 
   useEffect(() => {
     const loadReadme = async () => {
-      if (!isOpen) return;
-
-      if (projectData?.readmeContent !== undefined) {
-        setReadmeContent(projectData.readmeContent);
-        return;
-      }
-
-      if (projectData?.githubUrl) {
+      if (isOpen && projectData?.githubUrl) {
         try {
           const content = await fetchReadmeContentFromConfigUrl(
             projectData.githubUrl,
@@ -94,7 +86,7 @@ const ReadMoreModal: FC<ReadMoreModalProps> = ({
         setReadmeContent("");
       }
     };
-  }, [isOpen, projectData?.githubUrl, projectData?.readmeContent]);
+  }, [isOpen, projectData?.githubUrl]);
 
   const handleGoToReleases = useCallback(() => {
     if (projectData?.githubUrl) {
@@ -157,35 +149,33 @@ const ReadMoreModal: FC<ReadMoreModalProps> = ({
 
           <div className="relative flex flex-col items-center w-full">
             <div className="flex flex-col gap-4 sm:gap-6 w-full">
-              {projectData?.readmeContent === undefined && (
-                <div className="flex max-sm:flex-col gap-2 sm:gap-4">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <CopyButton
-                      textToCopy={
-                        projectData?.githubUrl
-                          ? `git clone ${projectData.githubUrl}`
-                          : ""
-                      }
-                      showText={true}
-                      text="Clone Repository"
-                      className="w-full sm:w-auto p-2 sm:p-[9px_30px] lg:p-[18px_30px] bg-[#F5F1F9]"
-                    />
-                  </div>
-                  <button
-                    onClick={handleGoToReleases}
-                    className="p-2 sm:p-[9px_30px] lg:p-[18px_30px] bg-[#F5F1F9] flex items-center justify-center sm:justify-start gap-2 sm:gap-3 w-full sm:w-auto"
-                  >
-                    <img
-                      src="/icons/link.svg"
-                      className="w-4 h-4 sm:w-auto sm:h-auto"
-                      alt="External link"
-                    />
-                    <span className="leading-5 text-base sm:text-xl text-primary cursor-pointer">
-                      Go to Releases
-                    </span>
-                  </button>
+              <div className="flex max-sm:flex-col gap-2 sm:gap-4">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <CopyButton
+                    textToCopy={
+                      projectData?.githubUrl
+                        ? `git clone ${projectData.githubUrl}`
+                        : ""
+                    }
+                    showText={true}
+                    text="Clone Repository"
+                    className="w-full sm:w-auto p-2 sm:p-[9px_30px] lg:p-[18px_30px] bg-[#F5F1F9]"
+                  />
                 </div>
-              )}
+                <button
+                  onClick={handleGoToReleases}
+                  className="p-2 sm:p-[9px_30px] lg:p-[18px_30px] bg-[#F5F1F9] flex items-center justify-center sm:justify-start gap-2 sm:gap-3 w-full sm:w-auto"
+                >
+                  <img
+                    src="/icons/link.svg"
+                    className="w-4 h-4 sm:w-auto sm:h-auto"
+                    alt="External link"
+                  />
+                  <span className="leading-5 text-base sm:text-xl text-primary cursor-pointer">
+                    Go to Releases
+                  </span>
+                </button>
+              </div>
               <div className="markdown-body border border-gray-200 rounded h-auto max-h-[60vh] overflow-y-auto overflow-x-hidden p-4">
                 <Markdown options={{ overrides: markdownOverrides }}>
                   {readmeContent || projectData?.description || ""}
