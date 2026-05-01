@@ -3,7 +3,7 @@
 use crate::{
     DaoTrait, MembershipTrait, Tansu, TansuArgs, TansuClient, TansuTrait, errors, events, types,
 };
-use soroban_sdk::crypto::bls12_381::G1Affine;
+use soroban_sdk::crypto::bls12_381::{Fr, G1Affine};
 use soroban_sdk::{
     Address, Bytes, BytesN, Env, InvokeError, String, U256, Vec, contractimpl, panic_with_error,
     token, vec,
@@ -354,7 +354,7 @@ impl DaoTrait for Tansu {
     ///
     /// Only a project maintainer can call this. The voter's collateral is slashed
     /// (kept by the contract) as a penalty. The vote must be cast on an active
-    /// proposal that is still within its voting period.
+    /// proposal (removal is allowed even after the voting period ends).
     ///
     /// # Arguments
     /// * `env` - The environment object
@@ -432,22 +432,18 @@ impl DaoTrait for Tansu {
                 types::Vote::AnonymousVote(vote_choice),
             ) => {
                 let bls12_381 = env.crypto().bls12_381();
-                // BLS12-381 scalar field order r. Multiplying by (r - weight) ≡ -weight (mod r).
-                let group_order = U256::from_parts(
-                    &env,
-                    0x73eda753299d7d48u64,
-                    0x3339d80809a1d805u64,
-                    0x53bda402fffe5bfeu64,
-                    0xffffffff00000001u64,
+                let zero = U256::from_u32(&env, 0);
+                let neg_weight: Fr = bls12_381.fr_sub(
+                    &zero.into(),
+                    &U256::from_u32(&env, vote_choice.weight).into(),
                 );
-                let neg_weight = group_order.sub(&U256::from_u32(&env, vote_choice.weight));
                 for (idx, commitment) in vote_choice.commitments.iter().enumerate() {
                     let current = aggregate
                         .get(idx as u32)
                         .expect("missing aggregate commitment");
                     let current = G1Affine::from_bytes(current);
                     let commitment = G1Affine::from_bytes(commitment);
-                    let neg_weighted = bls12_381.g1_mul(&commitment, &neg_weight.clone().into());
+                    let neg_weighted = bls12_381.g1_mul(&commitment, &neg_weight);
                     let updated = bls12_381.g1_add(&current, &neg_weighted);
                     aggregate.set(idx as u32, updated.to_bytes());
                 }
