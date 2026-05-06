@@ -30,6 +30,7 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
     null,
   );
   const [decodedVotes, setDecodedVotes] = useState<DecodedVote[]>([]);
+  const [tallies, setTallies] = useState<bigint[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const computeTalliesAndProof = async (privKey: string) => {
@@ -44,6 +45,7 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
       setProofOk(data.proofOk ?? null);
       setProofErrorMessage(data.proofErrorMessage ?? null);
       setDecodedVotes(data.decodedVotes);
+      setTallies(data.tallies ?? []);
       return data.decodedVotes.length;
     } catch (err: any) {
       setProcessingError(err.message || "Failed to process key file");
@@ -127,6 +129,7 @@ const VerifyAnonymousVotesModal: React.FC<Props> = ({
           <AnonymousTalliesDisplay
             voteStatus={voteStatus || undefined}
             decodedVotes={decodedVotes}
+            tallies={tallies}
             proofOk={proofOk}
             proofErrorMessage={proofErrorMessage}
             exportFileNameBase={`${projectName.replace(
