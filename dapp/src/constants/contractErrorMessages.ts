@@ -46,6 +46,7 @@ export const contractErrorMessages = {
   401: "The proposal is still in voting, so cannot be executed.",
   402: "The proposal has already been executed.",
   403: "There was an error executing outcome contracts.",
+  404: "Vote does not exist.",
 
   // Voting/Cryptographic (500-599)
   500: "There is a tally seed error.",

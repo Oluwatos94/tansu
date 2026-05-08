@@ -16,6 +16,7 @@ decentralized project versioning with DAO governance, badge-based and token-base
 anonymous voting via BLS12-381 cryptographic commitments, and a multisig upgrade mechanism.
 
 **Findings:**
+
 - **Critical:** 0
 - **High:** 0
 - **Medium:** 0
@@ -32,17 +33,17 @@ and BLS12-381 Pedersen commitments for anonymous voting.
 
 ### Files Assessed
 
-| File | Description |
-|------|-------------|
-| `contracts/tansu/src/lib.rs` | Contract entry point, trait definitions, shared helpers |
-| `contracts/tansu/src/contract_tansu.rs` | Core admin, pause/unpause, multisig upgrade |
-| `contracts/tansu/src/contract_versioning.rs` | Project registration, commits, domain integration |
-| `contracts/tansu/src/contract_dao.rs` | Governance proposals, public and anonymous voting |
-| `contracts/tansu/src/contract_membership.rs` | Membership registration, badge management |
-| `contracts/tansu/src/contract_migration.rs` | One-time admin migration for pagination backfill |
-| `contracts/tansu/src/types.rs` | Data structures and storage key enums |
-| `contracts/tansu/src/errors.rs` | Error code definitions |
-| `contracts/tansu/src/events.rs` | Event definitions |
+| File                                         | Description                                             |
+|----------------------------------------------|---------------------------------------------------------|
+| `contracts/tansu/src/lib.rs`                 | Contract entry point, trait definitions, shared helpers |
+| `contracts/tansu/src/contract_tansu.rs`      | Core admin, pause/unpause, multisig upgrade             |
+| `contracts/tansu/src/contract_versioning.rs` | Project registration, commits, domain integration       |
+| `contracts/tansu/src/contract_dao.rs`        | Governance proposals, public and anonymous voting       |
+| `contracts/tansu/src/contract_membership.rs` | Membership registration, badge management               |
+| `contracts/tansu/src/contract_migration.rs`  | One-time admin migration for pagination backfill        |
+| `contracts/tansu/src/types.rs`               | Data structures and storage key enums                   |
+| `contracts/tansu/src/errors.rs`              | Error code definitions                                  |
+| `contracts/tansu/src/events.rs`              | Event definitions                                       |
 
 ### Assessment Areas
 
@@ -88,10 +89,10 @@ modules behind a unified entry point:
 
 ### Storage Layout
 
-| Storage Type | Data | Rationale |
-|-------------|------|-----------|
-| Instance | Admin config, pause state, domain/collateral contract refs, upgrade proposals | Global config, loaded on every call |
-| Persistent | Projects, members, badges, DAO proposals, anonymous vote configs, pagination keys | Per-entity data with independent lifetimes |
+| Storage Type | Data                                                                              | Rationale                                  |
+|--------------|-----------------------------------------------------------------------------------|--------------------------------------------|
+| Instance     | Admin config, pause state, domain/collateral contract refs, upgrade proposals     | Global config, loaded on every call        |
+| Persistent   | Projects, members, badges, DAO proposals, anonymous vote configs, pagination keys | Per-entity data with independent lifetimes |
 
 ---
 
@@ -142,6 +143,7 @@ The upgrade mechanism implements a three-phase process:
    expired) or cancels the upgrade. Cancellation is always permitted.
 
 Key properties:
+
 - **Timelock:** 24-hour delay (`TIMELOCK_DELAY = 86400s`) between proposal and execution.
 - **Threshold validation:** `threshold > 0` and `threshold <= admins.len()` enforced on
   proposal creation.
@@ -176,6 +178,7 @@ are safely within type bounds.
 key collisions by construction.
 
 **Bounded operations:**
+
 - `MAX_VOTES_PER_PROPOSAL = 1000`: Caps the number of votes per proposal.
 - `MAX_PROPOSALS_PER_PAGE = 9`, `MAX_PAGES = 1000`: Bounds total proposals per project
   to 9,000.
@@ -224,6 +227,7 @@ while the collateral requirement provides an economic barrier to spam. Maintaine
 assign higher-weight badges to trusted members for greater influence.
 
 **Anonymous voting:** BLS12-381 Pedersen commitment scheme:
+
 - Generator points derived via `hash_to_g1` with domain separation tags.
 - Commitment: `C = g * vote + h * seed` where `g`, `h` are independent generators.
 - Proof verification aggregates weighted commitments and checks against provided tallies.
@@ -243,7 +247,7 @@ Soroban SDK (`env.crypto().bls12_381()`):
 - **Commitment structure:** Pedersen commitments `C = g*v + h*r` bind vote choice `v` and
   randomness `r`. Three commitments per voter (approve, reject, abstain).
 - **Commitment validation:** On vote submission, commitments are validated as valid G1
-  points via `G1Affine::from_bytes()`. Exactly 3 commitments required.
+  points via `Bls12381G1Affine::from_bytes()`. Exactly 3 commitments required.
 - **Proof verification:** The `proof()` function reconstructs expected commitments from
   tallies/seeds and compares against the weighted sum of recorded commitments. Identity
   element correctly initialized (`0x40` prefix for compressed G1 infinity point).
@@ -331,6 +335,7 @@ if let Some(outcome_contracts) = &proposal.outcome_contracts {
 ```
 
 **Affected locations:**
+
 - `contract_dao.rs:180`: Outcome contracts accepted from proposer
 - `contract_dao.rs:486-504`: Outcome contracts invoked during execution
 
@@ -354,18 +359,18 @@ allowlist for defense in depth.
 
 The contract includes 10 test modules with comprehensive coverage:
 
-| Module | Focus |
-|--------|-------|
-| `test_register` | Project registration, duplicate prevention, name validation, domain ownership, pagination, sub-projects |
-| `test_commit` | Commit flow, events, unauthorized maintainer rejection, commitment validation |
-| `test_dao` | Full proposal lifecycle, public and anonymous voting, error conditions, revocation, voter weight, outcomes execution, token-based proposals |
-| `test_membership` | Badge management, multiple badges, double-set, error conditions |
-| `test_domain` | Domain node hash verification |
-| `test_anonym_votes` | BLS12-381 commitment math, roundtrip validation, weighted commitments |
-| `test_pause_upgrade` | Pause/unpause, unauthorized attempts, full upgrade flow, cancellation, threshold validation |
-| `test_migration` | Pagination migration for existing projects, authorization, paused state, multi-page, deduplication handling |
-| `test_cost_estimates` | Resource cost profiling for all major operations |
-| `test_utils` | Shared test setup and environment configuration |
+| Module                | Focus                                                                                                                                       |
+|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `test_register`       | Project registration, duplicate prevention, name validation, domain ownership, pagination, sub-projects                                     |
+| `test_commit`         | Commit flow, events, unauthorized maintainer rejection, commitment validation                                                               |
+| `test_dao`            | Full proposal lifecycle, public and anonymous voting, error conditions, revocation, voter weight, outcomes execution, token-based proposals |
+| `test_membership`     | Badge management, multiple badges, double-set, error conditions                                                                             |
+| `test_domain`         | Domain node hash verification                                                                                                               |
+| `test_anonym_votes`   | BLS12-381 commitment math, roundtrip validation, weighted commitments                                                                       |
+| `test_pause_upgrade`  | Pause/unpause, unauthorized attempts, full upgrade flow, cancellation, threshold validation                                                 |
+| `test_migration`      | Pagination migration for existing projects, authorization, paused state, multi-page, deduplication handling                                 |
+| `test_cost_estimates` | Resource cost profiling for all major operations                                                                                            |
+| `test_utils`          | Shared test setup and environment configuration                                                                                             |
 
 Tests use `env.mock_all_auths()` for test convenience. Authorization logic is separately
 tested via `try_*` calls that verify unauthorized callers are rejected.
