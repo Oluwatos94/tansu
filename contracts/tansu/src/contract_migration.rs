@@ -1,66 +1,39 @@
-use soroban_sdk::{Address, Bytes, Env, String, Vec, contractimpl};
+use soroban_sdk::{Address, Bytes, Env, String, Vec, contractimpl, contracttype};
 
-use crate::{MigrationTrait, Tansu, TansuArgs, TansuClient, TansuTrait, types};
+use crate::{MigrationTrait, Tansu, TansuArgs, TansuClient, types};
 
-pub const MAX_PROJECTS_PER_PAGE: u32 = 10;
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProjectV1 {
+    pub name: String,
+    pub config: types::Config,
+    pub maintainers: Vec<Address>,
+    pub sub_projects: Option<Vec<Bytes>>,
+}
 
 #[contractimpl]
 impl MigrationTrait for Tansu {
-    /// Add projects to the new pagination list. This is used to migrate projects when the project was created before the pagination was implemented.
-    ///
-    /// # Arguments
-    /// * `env` - The environment object
-    /// * `admin` - The admin address
-    /// * `names` - The names of the projects to add
-    ///
-    /// # Returns
-    /// * `()`
-    fn add_projects_to_pagination(env: Env, admin: Address, names: Vec<String>) {
-        Tansu::require_not_paused(env.clone());
+    fn projects_migration(env: Env, admin: Address, names: Vec<String>) {
         crate::contract_tansu::auth_admin(&env, &admin);
-
-        let mut total_projects = env
-            .storage()
-            .persistent()
-            .get(&types::ProjectKey::TotalProjects)
-            .unwrap_or(0u32);
-
-        let mut current_page = total_projects / MAX_PROJECTS_PER_PAGE;
-        let mut current_project_keys: Vec<Bytes> = env
-            .storage()
-            .persistent()
-            .get(&types::ProjectKey::ProjectKeys(current_page))
-            .unwrap_or(Vec::new(&env));
 
         for name in names {
             let key: Bytes = env.crypto().keccak256(&name.to_bytes()).into();
             let key_ = types::ProjectKey::Key(key.clone());
 
-            // Only migrate if the project exists
-            if env.storage().persistent().has(&key_) {
-                current_project_keys.push_back(key.clone());
-                total_projects += 1;
+            let project_v1 = env
+                .storage()
+                .persistent()
+                .get::<types::ProjectKey, ProjectV1>(&key_)
+                .expect("Migration");
 
-                if current_project_keys.len() >= MAX_PROJECTS_PER_PAGE {
-                    env.storage().persistent().set(
-                        &types::ProjectKey::ProjectKeys(current_page),
-                        &current_project_keys,
-                    );
-                    current_page += 1;
-                    current_project_keys = Vec::new(&env);
-                }
-            }
+            let project_v2 = types::Project {
+                name: project_v1.name,
+                config: project_v1.config,
+                maintainers: project_v1.maintainers,
+                sub_projects: None,
+            };
+
+            env.storage().persistent().set(&key_, &project_v2);
         }
-
-        if !current_project_keys.is_empty() {
-            env.storage().persistent().set(
-                &types::ProjectKey::ProjectKeys(current_page),
-                &current_project_keys,
-            );
-        }
-
-        env.storage()
-            .persistent()
-            .set(&types::ProjectKey::TotalProjects, &total_projects);
     }
 }

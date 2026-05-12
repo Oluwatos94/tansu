@@ -194,7 +194,7 @@ pub trait DaoTrait {
 }
 
 pub trait MigrationTrait {
-    fn add_projects_to_pagination(env: Env, admin: Address, names: Vec<String>);
+    fn projects_migration(env: Env, admin: Address, names: Vec<String>);
 }
 
 fn auth_maintainers(env: &Env, maintainer: &Address, project_key: &Bytes) -> types::Project {

@@ -1,5 +1,6 @@
 import Button from "components/utils/Button";
 import Input from "components/utils/Input";
+import VoterInfo from "components/utils/VoterInfo";
 import Loading from "components/utils/Loading";
 import Modal, { type ModalProps } from "components/utils/Modal";
 import Title from "components/utils/Title";
@@ -9,7 +10,7 @@ import {
   addConflictOfInterest,
   removeConflictOfInterest,
 } from "@service/ContractService";
-import { toast, truncateMiddle } from "utils/utils";
+import { toast } from "utils/utils";
 import { validateStellarAddress } from "utils/validations";
 
 interface Props extends ModalProps {
@@ -109,24 +110,22 @@ const ConflictOfInterestModal: React.FC<Props> = ({
   };
 
   const renderRow = (address: string) => (
-    <div
+    <VoterInfo
       key={address}
-      className="flex items-center justify-between gap-3 p-[12px] bg-[#F8F6FB]"
-    >
-      <p className="font-mono text-sm text-primary break-all">
-        {truncateMiddle(address, 24)}
-      </p>
-      {canEdit && (
-        <Button
-          type="tertiary"
-          size="xs"
-          onClick={() => handleRemove(address)}
-          disabled={isSubmitting}
-        >
-          Remove
-        </Button>
-      )}
-    </div>
+      address={address}
+      action={
+        canEdit ? (
+          <Button
+            type="tertiary"
+            size="xs"
+            onClick={() => handleRemove(address)}
+            disabled={isSubmitting}
+          >
+            Remove
+          </Button>
+        ) : undefined
+      }
+    />
   );
 
   const description = canEdit

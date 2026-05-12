@@ -147,43 +147,47 @@ const ProposalTitle: React.FC<Props> = ({
           <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row sm:justify-between gap-4 sm:gap-0">
               <ProposalStatusSection proposal={proposal} />
-              <div className="flex flex-wrap gap-3 sm:gap-6">
+              <div className="flex flex-col gap-2 items-start sm:items-end">
+                <div className="flex gap-3">
+                  {proposal?.status == "active" && (
+                    <Button
+                      size="sm"
+                      icon="/icons/vote.svg"
+                      onClick={() => submitVote()}
+                    >
+                      Vote
+                    </Button>
+                  )}
+                  {proposal?.status == "voted" && isMaintainer && (
+                    <Button
+                      size="sm"
+                      icon="/icons/finalize-vote.svg"
+                      onClick={() => executeProposal()}
+                    >
+                      Finalize Vote
+                    </Button>
+                  )}
+                </div>
                 {proposal?.status == "active" && (
-                  <Button
-                    size="sm"
-                    type="secondary"
-                    onClick={() => setShowConflictModal(true)}
-                  >
-                    Conflict of Interest
-                  </Button>
-                )}
-                {proposal?.status == "active" && (
-                  <Button
-                    size="sm"
-                    icon="/icons/vote.svg"
-                    onClick={() => submitVote()}
-                  >
-                    Vote
-                  </Button>
-                )}
-                {proposal?.status == "active" && isMaintainer && (
-                  <Button
-                    size="sm"
-                    type="tertiary"
-                    className="border-red-500! text-red-500!"
-                    onClick={() => setShowRemoveVoteModal(true)}
-                  >
-                    Remove Vote
-                  </Button>
-                )}
-                {proposal?.status == "voted" && isMaintainer && (
-                  <Button
-                    size="sm"
-                    icon="/icons/finalize-vote.svg"
-                    onClick={() => executeProposal()}
-                  >
-                    Finalize Vote
-                  </Button>
+                  <div className="flex gap-3">
+                    {isMaintainer && (
+                      <Button
+                        size="sm"
+                        type="tertiary"
+                        className="border-red-500! text-red-500!"
+                        onClick={() => setShowRemoveVoteModal(true)}
+                      >
+                        Remove Vote
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      type="secondary"
+                      onClick={() => setShowConflictModal(true)}
+                    >
+                      Conflict of Interest
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

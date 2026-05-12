@@ -14,7 +14,7 @@ import Label from "components/utils/Label.tsx";
 import FlowProgressModal from "components/utils/FlowProgressModal.tsx";
 import Step from "components/utils/Step.tsx";
 import Title from "components/utils/Title.tsx";
-import { useState, type FC, useCallback, useEffect } from "react";
+import { useState, type FC, useCallback, useEffect, useRef } from "react";
 import { extractConfigData, toast } from "utils/utils";
 import {
   validateProjectName as validateProjectNameUtil,
@@ -35,6 +35,9 @@ import {
   SUPPORTED_REPOSITORY_PROVIDERS,
   type RepositoryProvider,
 } from "utils/editLinkFunctions";
+import MarkdownEditorWithImages, {
+  type AttachedImage,
+} from "components/utils/MarkdownEditorWithImages";
 
 // Get domain contract ID from environment with fallback
 const SOROBAN_DOMAIN_CONTRACT_ID =
@@ -78,6 +81,8 @@ const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
   const [selectedRepositoryProvider, setSelectedRepositoryProvider] =
     useState<RepositoryProvider>("github");
   const [readmeContent, setReadmeContent] = useState("");
+  const [readmeImageFiles, setReadmeImageFiles] = useState<AttachedImage[]>([]);
+  const [readmeImageError, setReadmeImageError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [domainContractId] = useState(SOROBAN_DOMAIN_CONTRACT_ID);
   const [domainStatus, setDomainStatus] = useState<
@@ -106,6 +111,19 @@ const CreateProjectModal: FC<ModalProps> = ({ onClose }) => {
   const repositoryUrlPlaceholder = getRepositoryUrlPlaceholder(
     activeRepositoryProvider,
   );
+
+  // Revoke blob URLs on modal unmount (not on step navigation)
+  const readmeImageFilesRef = useRef<AttachedImage[]>([]);
+  useEffect(() => {
+    readmeImageFilesRef.current = readmeImageFiles;
+  }, [readmeImageFiles]);
+  useEffect(() => {
+    return () => {
+      readmeImageFilesRef.current.forEach((img) =>
+        URL.revokeObjectURL(img.localUrl),
+      );
+    };
+  }, []);
 
   // Seed the first maintainer address once when the wallet resolves
   useEffect(() => {
@@ -397,10 +415,26 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
       // Create README file for non-software projects (always, even if empty)
       let additionalFiles: File[] | undefined = undefined;
       if (projectType === ProjectType.GENERIC) {
-        const readmeFile = new File([readmeContent || ""], "README.md", {
-          type: "text/plain",
+        let finalReadme = readmeContent || "";
+        const imageFilesToInclude: File[] = [];
+        readmeImageFiles.forEach((img) => {
+          if (finalReadme.includes(img.localUrl)) {
+            finalReadme = finalReadme.replace(
+              new RegExp(
+                img.localUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                "g",
+              ),
+              img.publicUrl,
+            );
+            imageFilesToInclude.push(
+              new File([img.source], img.publicUrl, { type: img.source.type }),
+            );
+          }
         });
-        additionalFiles = [readmeFile];
+        additionalFiles = [
+          new File([finalReadme], "README.md", { type: "text/plain" }),
+          ...imageFilesToInclude,
+        ];
       }
 
       // show progress
@@ -937,15 +971,26 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                     error={orgDescriptionError}
                   />
 
-                  {projectType === ProjectType.GENERIC && (
-                    <Textarea
-                      label="README Content"
-                      placeholder="Write your project README in markdown format..."
-                      value={readmeContent}
+                  {projectType === ProjectType.SOFTWARE ? (
+                    <Input
+                      label="GitHub Repository URL"
+                      placeholder="Write the github repository URL"
+                      value={githubRepoUrl}
                       onChange={(e) => {
-                        setReadmeContent(e.target.value);
+                        setGithubRepoUrl(e.target.value);
+                        setGithubRepoUrlError(null);
                       }}
-                      description="Provide documentation for your non-software project."
+                      error={githubRepoUrlError}
+                    />
+                  ) : (
+                    <MarkdownEditorWithImages
+                      value={readmeContent}
+                      onChange={setReadmeContent}
+                      imageFiles={readmeImageFiles}
+                      onImageFilesChange={setReadmeImageFiles}
+                      imageError={readmeImageError}
+                      onImageErrorChange={setReadmeImageError}
+                      placeholder="Write your project README in markdown format..."
                     />
                   )}
                 </div>

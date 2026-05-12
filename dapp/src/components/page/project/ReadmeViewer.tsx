@@ -1,13 +1,18 @@
 import { useStore } from "@nanostores/react";
 import Markdown from "markdown-to-jsx";
 import { useEffect, useState } from "react";
-import { fetchReadmeContentFromConfigUrl } from "../../../service/RepositoryMetadataService";
+import {
+  fetchReadmeContentFromConfigUrl,
+  getReadmeRawBaseUrl,
+} from "../../../service/RepositoryMetadataService";
 import { loadProjectInfo, loadConfigData } from "../../../service/StateService";
 import {
   configData as configDataStore,
   projectInfoLoaded,
 } from "../../../utils/store";
 import DOMPurify from "dompurify";
+import { getIpfsBasicLink } from "../../../utils/ipfsFunctions";
+import { rewriteRelativePaths } from "../../utils/MarkdownEditorWithImages";
 
 const ReadmeViewer = () => {
   const isProjectInfoLoaded = useStore(projectInfoLoaded);
@@ -33,7 +38,9 @@ const ReadmeViewer = () => {
 
         // Only fallback if truly null/undefined (not empty string)
         if (content !== undefined && content !== null) {
-          setReadmeContent(content);
+          setReadmeContent(
+            rewriteRelativePaths(content, getReadmeRawBaseUrl(configUrl)),
+          );
         } else {
           setReadmeContent("No README available for this project.");
         }
@@ -45,7 +52,12 @@ const ReadmeViewer = () => {
 
       // FIX: do NOT use truthy check
       if (readme !== undefined && readme !== null) {
-        setReadmeContent(readme);
+        setReadmeContent(
+          rewriteRelativePaths(
+            readme,
+            getIpfsBasicLink(projectInfo.config.ipfs ?? ""),
+          ),
+        );
       } else {
         setReadmeContent("No README available for this project.");
       }

@@ -10,14 +10,14 @@
     "deploy:production": "wrangler deploy --env production"
   },
   "dependencies": {
-    "@ipld/car": "^5.4.2",
-    "@stellar/stellar-sdk": "^14.6.1",
+    "@ipld/car": "^5.4.5",
+    "@stellar/stellar-sdk": "^15.1.0",
     "ipfs-car": "^3.1.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251117.0",
-    "typescript": "^5.9.3",
-    "wrangler": "^4.47.0"
+    "@cloudflare/workers-types": "^4.20260511.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.90.0"
   },
   "type": "module"
 }

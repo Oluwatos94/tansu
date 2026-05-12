@@ -18,7 +18,9 @@ import OutcomeInput from "./OutcomeInput";
 import TemplateSelector from "./TemplateSelector";
 import { generateRSAKeyPair } from "utils/crypto";
 import { setupAnonymousVoting } from "@service/ContractService";
-import SimpleMarkdownEditor from "components/utils/SimpleMarkdownEditor";
+import MarkdownEditorWithImages, {
+  type AttachedImage,
+} from "components/utils/MarkdownEditorWithImages";
 import { navigate } from "astro:transitions/client";
 import Loading from "components/utils/Loading";
 
@@ -32,8 +34,7 @@ const CreateProposalModal = () => {
   const [mdText, setMdText] = useState("");
 
   // Local image handling for Markdown content
-  type ProposalImage = { localUrl: string; publicUrl: string; source: File };
-  const [imageFiles, setImageFiles] = useState<ProposalImage[]>([]);
+  const [imageFiles, setImageFiles] = useState<AttachedImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
 
   const [approveDescription, setApproveDescription] = useState("");
@@ -256,7 +257,11 @@ const CreateProposalModal = () => {
           new RegExp(image.localUrl, "g"),
           image.publicUrl,
         );
-        files.push(new File([image.source], image.publicUrl));
+        files.push(
+          new File([image.source], image.publicUrl, {
+            type: image.source.type,
+          }),
+        );
       }
     });
 
@@ -462,6 +467,8 @@ const CreateProposalModal = () => {
   };
 
   const handleCloseModal = () => {
+    imageFiles.forEach((img) => URL.revokeObjectURL(img.localUrl));
+    setImageFiles([]);
     setShowModal(false);
     setStep(1);
   };
@@ -628,133 +635,21 @@ const CreateProposalModal = () => {
                 Supports Markdown formatting
               </span>
             </div>
-            <div
-              className={`rounded-md border ${descriptionError ? "border-red-500" : "border-zinc-700"} overflow-hidden`}
-            >
-              <SimpleMarkdownEditor
-                value={mdText}
-                onChange={(value) => {
-                  setMdText(value);
-                  setDescriptionError(null);
-                }}
-                placeholder="Input your proposal description here..."
-              />
-            </div>
-
-            {/* Image upload controls */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-gray-50 rounded-md">
-                <div className="flex-1">
-                  <p className="text-sm text-secondary">
-                    Optionally attach images and insert them into your Markdown.
-                    Supported formats: PNG, JPG, JPEG, SVG, GIF (max 5MB each).
-                  </p>
-                </div>
-                <label className="cursor-pointer bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors text-sm font-medium whitespace-nowrap">
-                  Add Image
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/gif"
-                    className="hidden"
-                    data-testid="proposal-image-input"
-                    onChange={(e) => {
-                      setImageError(null);
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const allowedTypes = [
-                        "image/png",
-                        "image/jpeg",
-                        "image/jpg",
-                        "image/svg+xml",
-                        "image/gif",
-                      ];
-                      if (!allowedTypes.includes(file.type)) {
-                        setImageError(
-                          "Unsupported image type. Allowed: png, jpg, jpeg, svg, gif",
-                        );
-                        return;
-                      }
-                      const maxBytes = 5 * 1024 * 1024; // 5MB
-                      if (file.size > maxBytes) {
-                        setImageError(
-                          "Please upload an image smaller than 5MB",
-                        );
-                        return;
-                      }
-                      const localUrl = URL.createObjectURL(file);
-                      const publicUrl = `images/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-                      setImageFiles((prev) => [
-                        ...prev,
-                        { localUrl, publicUrl, source: file },
-                      ]);
-                      setMdText(
-                        (prev) =>
-                          `${prev}${prev && !prev.endsWith("\n") ? "\n\n" : ""}![](${localUrl})\n`,
-                      );
-                    }}
-                  />
-                </label>
-              </div>
-
-              {imageError && (
-                <p className="text-red-500 text-sm">{imageError}</p>
-              )}
-
-              {imageFiles.length > 0 && (
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-primary">
-                    Attached Images ({imageFiles.length})
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {imageFiles.map((img, idx) => (
-                      <div
-                        key={idx}
-                        className="border border-gray-200 p-3 flex flex-col gap-3 rounded-lg bg-white"
-                      >
-                        <img
-                          src={img.localUrl}
-                          alt={`attachment-${idx}`}
-                          className="w-full h-20 object-contain rounded"
-                        />
-                        <div className="flex justify-between items-center gap-2">
-                          <button
-                            type="button"
-                            className="text-blue-600 hover:text-blue-800 underline text-xs"
-                            onClick={() =>
-                              setMdText(
-                                (prev) =>
-                                  `${prev}${prev && !prev.endsWith("\n") ? "\n\n" : ""}![](${img.localUrl})\n`,
-                              )
-                            }
-                          >
-                            Insert
-                          </button>
-                          <button
-                            type="button"
-                            className="text-red-600 hover:text-red-800 underline text-xs"
-                            onClick={() => {
-                              URL.revokeObjectURL(img.localUrl);
-                              setImageFiles((prev) =>
-                                prev.filter((_, i) => i !== idx),
-                              );
-                              setMdText((prev) =>
-                                prev.replaceAll(img.localUrl, ""),
-                              );
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {descriptionError && (
-                <p className="text-red-500 text-sm">{descriptionError}</p>
-              )}
-            </div>
+            <MarkdownEditorWithImages
+              value={mdText}
+              onChange={(val) => {
+                setMdText(val);
+                setDescriptionError(null);
+              }}
+              imageFiles={imageFiles}
+              onImageFilesChange={setImageFiles}
+              imageError={imageError}
+              onImageErrorChange={setImageError}
+              placeholder="Input your proposal description here..."
+            />
+            {descriptionError && (
+              <p className="text-red-500 text-sm">{descriptionError}</p>
+            )}
           </div>
 
           {/* Footer Buttons */}

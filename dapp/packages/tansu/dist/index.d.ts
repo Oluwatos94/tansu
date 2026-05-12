@@ -302,6 +302,9 @@ export declare const ContractErrors: {
   403: {
     message: string;
   };
+  404: {
+    message: string;
+  };
   500: {
     message: string;
   };
@@ -474,6 +477,40 @@ export interface Client {
     options?: MethodOptions,
   ) => Promise<AssembledTransaction<Dao>>;
   /**
+   * Construct and simulate a remove_vote transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Remove a malicious or non-compliant vote from a proposal.
+   *
+   * Only a project maintainer can call this. The voter's collateral is slashed
+   * (kept by the contract) as a penalty. The vote must be cast on an active
+   * proposal (removal is allowed even after the voting period ends).
+   *
+   * # Arguments
+   * * `env` - The environment object
+   * * `maintainer` - Address of the maintainer removing the vote
+   * * `project_key` - The project key identifier
+   * * `proposal_id` - The ID of the proposal
+   * * `voter` - The address of the voter whose vote is being removed
+   *
+   * # Panics
+   * * If the maintainer is not authorized
+   * * If the proposal is not active or voting period has ended
+   * * If no vote from the given voter exists
+   */
+  remove_vote: (
+    {
+      maintainer,
+      project_key,
+      proposal_id,
+      voter,
+    }: {
+      maintainer: string;
+      project_key: Buffer;
+      proposal_id: u32;
+      voter: string;
+    },
+    options?: MethodOptions,
+  ) => Promise<AssembledTransaction<null>>;
+  /**
    * Construct and simulate a get_proposal transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Get a single proposal by ID.
    *
@@ -640,8 +677,7 @@ export interface Client {
    * Construct and simulate a add_conflict_of_interest transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Add addresses to the conflict-of-interest list of a proposal.
    *
-   * Addresses on the list cannot cast a vote on the proposal. Only
-   * maintainers of the project can edit the list.
+   * Addresses on the list cannot cast a vote on the proposal.
    *
    * # Arguments
    * * `env` - The environment object
@@ -715,8 +751,6 @@ export interface Client {
   /**
    * Construct and simulate a remove_conflict_of_interest transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Remove addresses from the conflict-of-interest list of a proposal.
-   *
-   * Only maintainers of the project can edit the list.
    *
    * # Arguments
    * * `env` - The environment object
@@ -1390,6 +1424,7 @@ export declare class Client extends ContractClient {
     proof: (json: string) => AssembledTransaction<boolean>;
     execute: (json: string) => AssembledTransaction<ProposalStatus>;
     get_dao: (json: string) => AssembledTransaction<Dao>;
+    remove_vote: (json: string) => AssembledTransaction<null>;
     get_proposal: (json: string) => AssembledTransaction<Proposal>;
     create_proposal: (json: string) => AssembledTransaction<number>;
     revoke_proposal: (json: string) => AssembledTransaction<null>;

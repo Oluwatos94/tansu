@@ -1,8 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import type { FC } from "react";
 import Modal from "components/utils/Modal";
-import { fetchReadmeContentFromConfigUrl } from "../../../service/RepositoryMetadataService";
+import {
+  fetchReadmeContentFromConfigUrl,
+  getReadmeRawBaseUrl,
+} from "../../../service/RepositoryMetadataService";
 import Markdown from "markdown-to-jsx";
+import { rewriteRelativePaths } from "../../utils/MarkdownEditorWithImages";
 
 import CopyButton from "components/utils/CopyButton";
 import {
@@ -82,7 +86,12 @@ const ReadMoreModal: FC<ReadMoreModalProps> = ({
           projectData.githubUrl,
         );
         if (content !== undefined && content !== null) {
-          setReadmeContent(content);
+          setReadmeContent(
+            rewriteRelativePaths(
+              content,
+              getReadmeRawBaseUrl(projectData.githubUrl),
+            ),
+          );
         } else {
           setReadmeContent("No README available for this project.");
         }

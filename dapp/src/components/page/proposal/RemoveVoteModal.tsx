@@ -1,9 +1,10 @@
 import Button from "components/utils/Button";
 import Modal from "components/utils/Modal";
+import VoterInfo from "components/utils/VoterInfo";
 import { useState, type FC } from "react";
 import type { VoteStatus } from "types/proposal";
 import { VoteType } from "types/proposal";
-import { truncateMiddle, toast } from "utils/utils";
+import { toast, truncateMiddle } from "utils/utils";
 import { removeVoteFlow } from "@service/FlowService";
 import { votedTypeLabelMap } from "constants/constants";
 
@@ -78,30 +79,21 @@ const RemoveVoteModal: FC<RemoveVoteModalProps> = ({
             </p>
           ) : (
             voters.map((voter) => (
-              <div
+              <VoterInfo
                 key={voter.address}
-                className="flex items-center justify-between gap-4 p-3 border border-[#EEEEEE] rounded"
-              >
-                <div className="flex flex-col gap-1">
-                  {voter.name && (
-                    <p className="text-sm font-medium text-primary">
-                      @{voter.name}
-                    </p>
-                  )}
-                  <p className="text-xs text-secondary font-mono">
-                    {truncateMiddle(voter.address, 20)}
-                  </p>
-                </div>
-                <Button
-                  type="tertiary"
-                  size="xs"
-                  className="!border-red-500 !text-red-500"
-                  onClick={() => handleRemove(voter.address)}
-                  disabled={removing === voter.address}
-                >
-                  {removing === voter.address ? "Removing…" : "Remove"}
-                </Button>
-              </div>
+                address={voter.address}
+                action={
+                  <Button
+                    type="tertiary"
+                    size="xs"
+                    className="!border-red-500 !text-red-500"
+                    onClick={() => handleRemove(voter.address)}
+                    disabled={removing === voter.address}
+                  >
+                    {removing === voter.address ? "Removing…" : "Remove"}
+                  </Button>
+                }
+              />
             ))
           )}
         </div>

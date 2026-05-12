@@ -13,6 +13,9 @@ import Input from "components/utils/Input";
 import Textarea from "components/utils/Textarea";
 import Step from "components/utils/Step";
 import Title from "components/utils/Title";
+import MarkdownEditorWithImages, {
+  type AttachedImage,
+} from "components/utils/MarkdownEditorWithImages";
 import {
   validateMaintainerAddress,
   validateGithubUrl,
@@ -219,6 +222,7 @@ const UpdateConfigModal = () => {
 
   const [showButton, setShowButton] = useState(false);
   const [open, setOpen] = useState(false);
+  const [ipfsBaseUrl, setIpfsBaseUrl] = useState<string | undefined>(undefined);
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -248,6 +252,8 @@ const UpdateConfigModal = () => {
   const [orgLogo, setOrgLogo] = useState("");
   const [orgDescription, setOrgDescription] = useState("");
   const [readmeContent, setReadmeContent] = useState("");
+  const [readmeImageFiles, setReadmeImageFiles] = useState<AttachedImage[]>([]);
+  const [readmeImageError, setReadmeImageError] = useState<string | null>(null);
 
   // errors
   const [addrErrors, setAddrErrors] = useState<(string | null)[]>([null]);
@@ -322,12 +328,20 @@ const UpdateConfigModal = () => {
   useEffect(() => {
     if (!open) return;
 
+    setReadmeImageFiles((prev) => {
+      prev.forEach((img) => URL.revokeObjectURL(img.localUrl));
+      return [];
+    });
+    setReadmeImageError(null);
+
     const projectInfo = loadProjectInfo();
     const ipfsCid = projectInfo?.config?.ipfs;
     if (!ipfsCid) {
       existingTomlRef.current = null;
       return;
     }
+
+    setIpfsBaseUrl(getIpfsBasicLink(ipfsCid));
 
     // Parallel fetch of TOML and README
     Promise.all([
@@ -345,6 +359,7 @@ const UpdateConfigModal = () => {
   }, [open, isSoftwareProject]);
 
   const handleClose = () => {
+    readmeImageFiles.forEach((img) => URL.revokeObjectURL(img.localUrl));
     const wasSuccessful = isSuccessful;
     setOpen(false);
     setIsSuccessful(false);
@@ -444,9 +459,52 @@ const UpdateConfigModal = () => {
 
       const additionalFiles: File[] = [];
       if (!isSoftwareProject) {
+        let readmeToSave = finalReadme || "";
+        const imageFilesToInclude: File[] = [];
+        readmeImageFiles.forEach((img) => {
+          if (readmeToSave.includes(img.localUrl)) {
+            readmeToSave = readmeToSave.replace(
+              new RegExp(
+                img.localUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                "g",
+              ),
+              img.publicUrl,
+            );
+            imageFilesToInclude.push(
+              new File([img.source], img.publicUrl, { type: img.source.type }),
+            );
+          }
+        });
+        // Re-fetch any existing relative images from the old IPFS CID so they
+        // are carried over into the new CAR and not orphaned after the update.
+        if (ipfsCid) {
+          const handledPaths = new Set(imageFilesToInclude.map((f) => f.name));
+          const relativeImgRegex = /!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g;
+          const matches = [...readmeToSave.matchAll(relativeImgRegex)];
+          await Promise.all(
+            matches.map(async (match) => {
+              const relativePath = match[2];
+              if (!relativePath || handledPaths.has(relativePath)) return;
+              try {
+                const res = await fetch(
+                  `${getIpfsBasicLink(ipfsCid)}/${relativePath}`,
+                );
+                if (!res.ok) return;
+                const blob = await res.blob();
+                imageFilesToInclude.push(
+                  new File([blob], relativePath, { type: blob.type }),
+                );
+              } catch {
+                // image no longer reachable — leave the reference as-is
+              }
+            }),
+          );
+        }
+
         additionalFiles.push(
-          new File([finalReadme || ""], "README.md", { type: "text/markdown" }),
+          new File([readmeToSave], "README.md", { type: "text/markdown" }),
         );
+        additionalFiles.push(...imageFilesToInclude);
       }
 
       await updateConfigFlow({
@@ -697,14 +755,23 @@ const UpdateConfigModal = () => {
                     />
 
                     {!isSoftwareProject && (
-                      <Textarea
-                        label="README"
-                        value={readmeContent}
-                        onChange={(e) => {
-                          setReadmeContent(e.target.value);
-                        }}
-                        description="Project README content (Markdown)"
-                      />
+                      <div className="flex flex-col gap-3">
+                        <label className="text-sm font-medium text-primary">
+                          README
+                        </label>
+                        <MarkdownEditorWithImages
+                          value={readmeContent}
+                          onChange={setReadmeContent}
+                          imageFiles={readmeImageFiles}
+                          onImageFilesChange={setReadmeImageFiles}
+                          imageError={readmeImageError}
+                          onImageErrorChange={setReadmeImageError}
+                          placeholder="Write your project README in markdown format..."
+                          {...(ipfsBaseUrl !== undefined && {
+                            imageBaseUrl: ipfsBaseUrl,
+                          })}
+                        />
+                      </div>
                     )}
 
                     <div className="flex justify-between mt-4">

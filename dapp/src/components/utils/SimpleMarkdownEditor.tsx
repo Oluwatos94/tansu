@@ -7,6 +7,7 @@ interface SimpleMarkdownEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  previewValue?: string;
 }
 
 const SimpleMarkdownEditor: React.FC<SimpleMarkdownEditorProps> = ({
@@ -14,6 +15,7 @@ const SimpleMarkdownEditor: React.FC<SimpleMarkdownEditorProps> = ({
   onChange,
   placeholder = "Type your markdown here...",
   className = "",
+  previewValue,
 }) => {
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
 
@@ -92,7 +94,7 @@ const SimpleMarkdownEditor: React.FC<SimpleMarkdownEditorProps> = ({
                   disableParsingRawHTML: true,
                 }}
               >
-                {DOMPurify.sanitize(value)}
+                {DOMPurify.sanitize(previewValue ?? value)}
               </Markdown>
             ) : (
               <p className="text-gray-500 italic">Nothing to preview...</p>

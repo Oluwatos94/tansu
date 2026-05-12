@@ -723,9 +723,26 @@ async function fetchReadmeContentFromConfigUrl(
   }
 }
 
+function getReadmeRawBaseUrl(repoUrl: string): string {
+  const repo = getRepositoryInfo(repoUrl);
+  if (!repo) return "";
+  const { owner, repoName } = getEncodedRepositorySegments(repo);
+  switch (repo.provider) {
+    case "github":
+      return `https://raw.githubusercontent.com/${owner}/${repoName}/HEAD`;
+    case "gitlab":
+      return `https://gitlab.com/${repo.projectPath}/-/raw/HEAD`;
+    case "bitbucket":
+      return `https://bitbucket.org/${owner}/${repoName}/raw/HEAD`;
+    case "gitea":
+      return `https://${repo.host}/${repo.projectPath}/raw/branch/HEAD`;
+  }
+}
+
 export {
   getCommitHistory,
   fetchReadmeContentFromConfigUrl,
   getLatestCommitData,
   getLatestCommitHash,
+  getReadmeRawBaseUrl,
 };
