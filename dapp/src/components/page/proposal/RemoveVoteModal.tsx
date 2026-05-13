@@ -3,10 +3,8 @@ import Modal from "components/utils/Modal";
 import VoterInfo from "components/utils/VoterInfo";
 import { useState, type FC } from "react";
 import type { VoteStatus } from "types/proposal";
-import { VoteType } from "types/proposal";
 import { toast, truncateMiddle } from "utils/utils";
 import { removeVoteFlow } from "@service/FlowService";
-import { votedTypeLabelMap } from "constants/constants";
 
 interface RemoveVoteModalProps {
   projectName: string;
@@ -23,10 +21,13 @@ const RemoveVoteModal: FC<RemoveVoteModalProps> = ({
   onClose,
   onRemoved,
 }) => {
-  const [currentType, setCurrentType] = useState<VoteType>(VoteType.APPROVE);
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const voters = voteStatus[currentType].voters;
+  const voters = [
+    ...voteStatus.approve.voters,
+    ...voteStatus.reject.voters,
+    ...voteStatus.abstain.voters,
+  ];
 
   const handleRemove = async (voterAddress: string) => {
     setRemoving(voterAddress);
@@ -56,27 +57,9 @@ const RemoveVoteModal: FC<RemoveVoteModalProps> = ({
           </p>
         </div>
 
-        <div className="flex">
-          {[VoteType.APPROVE, VoteType.REJECT, VoteType.CANCEL].map(
-            (type, index) => (
-              <button
-                key={index}
-                className={`p-[6px_12px] ${type === currentType && "bg-[#FFBD1E]"} border border-[#FFBD1E]`}
-                onClick={() => setCurrentType(type)}
-              >
-                <p className="leading-4 text-base font-medium text-primary">
-                  {votedTypeLabelMap[type]} Votes
-                </p>
-              </button>
-            ),
-          )}
-        </div>
-
         <div className="flex flex-col gap-3 max-h-64 overflow-y-auto">
           {voters.length === 0 ? (
-            <p className="text-sm text-secondary italic">
-              No votes in this category.
-            </p>
+            <p className="text-sm text-secondary italic">No votes yet.</p>
           ) : (
             voters.map((voter) => (
               <VoterInfo

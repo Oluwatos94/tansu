@@ -62,14 +62,15 @@ const ProposalTitle: React.FC<Props> = ({
     }
   };
 
-  const totalVotes =
-    (proposal?.voteStatus?.approve?.score || 0) +
-    (proposal?.voteStatus?.reject?.score || 0) +
-    (proposal?.voteStatus?.abstain?.score || 0);
   const isAnonymousProposal = proposal ? !proposal.publicVoting : false;
   const isMaintainer = connectedAddress
     ? maintainers.includes(connectedAddress)
     : false;
+  const totalVoters = !isAnonymousProposal
+    ? (proposal?.voteStatus?.approve?.voters?.length || 0) +
+      (proposal?.voteStatus?.reject?.voters?.length || 0) +
+      (proposal?.voteStatus?.abstain?.voters?.length || 0)
+    : 0;
 
   return (
     <>
@@ -118,7 +119,7 @@ const ProposalTitle: React.FC<Props> = ({
                   reject={proposal?.voteStatus?.reject?.score || 0}
                   abstain={proposal?.voteStatus?.abstain?.score || 0}
                 />
-                {totalVotes > 0 ? (
+                {totalVoters > 0 ? (
                   <Button
                     type="secondary"
                     size="2xs"
