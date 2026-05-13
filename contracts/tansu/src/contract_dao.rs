@@ -3,7 +3,6 @@
 use crate::{
     DaoTrait, MembershipTrait, Tansu, TansuArgs, TansuClient, TansuTrait, errors, events, types,
 };
-
 use soroban_sdk::crypto::bls12_381::{Bls12381Fr, Bls12381G1Affine};
 use soroban_sdk::{
     Address, Bytes, BytesN, Env, InvokeError, String, U256, Vec, contractimpl, panic_with_error,
@@ -377,7 +376,6 @@ impl DaoTrait for Tansu {
         voter: Address,
     ) {
         Tansu::require_not_paused(env.clone());
-
         crate::auth_maintainers(&env, &maintainer, &project_key);
 
         let page = proposal_id / MAX_PROPOSALS_PER_PAGE;
