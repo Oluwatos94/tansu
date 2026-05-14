@@ -7,7 +7,7 @@ ifndef network
 endif
 
 ifndef admin
-   override admin = mando-$(network)
+   override admin = tansu-$(network)
 endif
 
 ifndef wasm

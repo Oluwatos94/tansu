@@ -1,2 +1,3 @@
 shell: |
+  set -euo pipefail
   make contract_test
