@@ -242,10 +242,17 @@ export const modifyProposalFromContract = (
       },
     };
   }
-  // Anonymous voting – individual vote choices are hidden until execution.
-  // We cannot compute precise tallies client-side before the proposal is executed,
-  // therefore expose zeroed scores and empty voter arrays so the UI can still
-  // render the proposal card and details without breaking.
+  // Anonymous voting – vote choices are encrypted until execution, but addresses
+  // are public so maintainers can still remove malicious votes. Expose addresses
+  // in approve.voters (scores stay 0, choices unknown).
+  const anonymousVoters = proposal.vote_data.votes
+    .filter(
+      (v: Vote) => v.tag === "AnonymousVote" && (v as any).values?.[0]?.address,
+    )
+    .map((v: Vote) => {
+      const voteData = (v as any).values?.[0];
+      return { address: voteData.address, image: null, name: "", github: "" };
+    });
 
   return {
     id: proposal.id,
@@ -257,7 +264,11 @@ export const modifyProposalFromContract = (
     voting_ends_at: Number(proposal.vote_data.voting_ends_at),
     outcome_contracts: proposal.outcome_contracts || null,
     voteStatus: {
-      approve: { voteType: VoteType.APPROVE, score: 0, voters: [] },
+      approve: {
+        voteType: VoteType.APPROVE,
+        score: 0,
+        voters: anonymousVoters,
+      },
       reject: { voteType: VoteType.REJECT, score: 0, voters: [] },
       abstain: { voteType: VoteType.CANCEL, score: 0, voters: [] },
     },
