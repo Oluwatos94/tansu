@@ -20,6 +20,7 @@ export const contractErrorMessages = {
   100: "The user is not a maintainer.",
   101: "You are invalid voter.",
   102: "The maintainer is not the domain owner.",
+  103: "Need a minimum of one maintainer",
 
   // Validation (200-299)
   200: "The provided key is invalid.",

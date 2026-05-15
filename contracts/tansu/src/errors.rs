@@ -11,6 +11,7 @@ pub enum ContractErrors {
     UnauthorizedSigner = 100,
     WrongVoter = 101,
     MaintainerNotDomainOwner = 102,
+    MissingMaintainer = 103,
 
     // Validation (200-299)
     InvalidKey = 200,

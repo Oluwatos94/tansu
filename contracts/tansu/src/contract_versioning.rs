@@ -157,6 +157,10 @@ impl VersioningTrait for Tansu {
 
         let mut project = crate::auth_maintainers(&env, &maintainer, &key);
 
+        if maintainers.is_empty() {
+            panic_with_error!(&env, &errors::ContractErrors::MissingMaintainer);
+        }
+
         let config = types::Config { url, ipfs };
         project.config = config;
         project.maintainers = maintainers;
