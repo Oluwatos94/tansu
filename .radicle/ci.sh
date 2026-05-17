@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# cargo install radicle-job --locked
+
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
