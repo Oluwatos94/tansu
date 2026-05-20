@@ -181,6 +181,17 @@ contract_get_upgrade_proposal:  ## Get the current upgrade proposal
     	-- \
     	get_upgrade_proposal
 
+# --------- Radicle --------- #
+
+radicle_push:
+	git push origin rad
+
+radicle_ci:  ## Run test and register the results on Radicle
+	.radicle/ci.sh
+
+radicle_release:  ## Publish a release on Radicle
+	.radicle/release.sh
+
 # --------- Soroban Domains --------- #
 
 contract_domain_deploy:

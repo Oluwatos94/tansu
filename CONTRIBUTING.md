@@ -19,11 +19,15 @@ solely responsible for their contributions.
 
 ## Project management
 
-- _github_ is used for the code base.
-- For a PR to be integrated, it must be approved at least by one core team member.
-- Development discussions happen on Discord but any request **must** be formalized in _github_. This ensures a common
+Current BDFL: Pamphile Tupui Roy `@tupui`
+
+- _radicle_ is primarily used. _github_ only serves as a mirror.
+- For a patch to be integrated, it must be approved at least by one core team member.
+- Development discussions happen on Discord but any request **must** be formalized in _radicle_ (if really necessary on
+  _github_). This ensures a common
   history.
-- Continuous Integration is provided by _Github actions_ and configuration is located at `.github/workflows`.
+- When making a PR on _github_, Continuous Integration is provided by _Github actions_ and configuration is located at
+  `.github/workflows`.
 - Netlify is also providing some CI and is useful for all dApp related changes.
 
 ## Code
@@ -32,7 +36,7 @@ solely responsible for their contributions.
 
 After cloning the repository, see the various Makefiles.
 
-*For IPFS uploads via Storacha, see the guide at `dapp/workers/ipfs-delegation/README.md` for setup instructions.
+*For IPFS uploads via Filebase, see the guide at `dapp/workers/ipfs-delegation/README.md` for setup instructions.
 You only need to configure this if you're working on the IPFS delegation worker itself.*
 
 ### Testing
@@ -59,12 +63,13 @@ This allows to spot naming errors for example as well as other style errors.
 
 The development model is based on the Cactus Model also called
 [Trunk Based Development](https://trunkbaseddevelopment.com) model.
-More specificaly, we use the Scaled Trunk-Based Development model.
+More specifically, we use the Scaled Trunk-Based Development model.
 
 > Some additional ressources:
 > [gitflow](https://nvie.com/posts/a-successful-git-branching-model/),
 > [gitflow critique](https://barro.github.io/2016/02/a-succesful-git-branching-model-considered-harmful/),
-> [github PR](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-request-merges).
+> [Radicle Patch](https://radicle.dev/guides/user#working-with-patches)
+> [GitHub PR](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-request-merges).
 
 It means that **each** new feature has to go through a new branch. Why?
 For peer review. Pushing directly on the develop without review should be
@@ -86,7 +91,8 @@ accepted. If you don't use this feature and your changes are not compliant
 ### Recipe for new feature
 
 If you want to add a modification, create a new branch branching off `main`.
-Then you can create a merge request on _github_. From here, the fun begins.
+Then you can create a patch on _radicle_ or if you want to make me sad,
+a merge request on _github_. From here, the fun begins.
 
 > For every commit you push, the linter and tests are launched.
 
