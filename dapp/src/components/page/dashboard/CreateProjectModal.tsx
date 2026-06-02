@@ -419,11 +419,14 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                   placeholder="Write the project name (e.g., myproject)"
                   value={projectName}
                   onChange={(e) => {
-                    const validInput = e.target.value.replace(/[^a-z]/g, "");
+                    const validInput = e.target.value.replace(
+                      /[^a-zA-Z0-9]/g,
+                      "",
+                    );
                     setProjectName(validInput);
                     setProjectNameError(null);
                   }}
-                  description="Project name should be between 4-15 lowercase letters (a-z). This will be your unique on-chain identifier."
+                  description="Project name must be 4-30 alphanumeric characters (a-z, A-Z, 0-9). This will be your unique on-chain identifier."
                   error={projectNameError}
                 />
                 <Input

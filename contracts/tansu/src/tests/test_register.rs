@@ -77,7 +77,7 @@ fn register_name_too_long_error() {
     let setup = create_test_data();
     let _id = init_contract(&setup);
 
-    let name_long = String::from_str(&setup.env, "tansutansutansutansu");
+    let name_long = String::from_str(&setup.env, "tansutansutansutansutansutansux");
     let url = String::from_str(&setup.env, "github.com/tansu");
     let ipfs = String::from_str(&setup.env, "2ef4f49fdd8fa9dc463f1f06a094c26b88710990");
     let maintainers = vec![&setup.env, setup.grogu.clone(), setup.mando.clone()];
@@ -86,6 +86,25 @@ fn register_name_too_long_error() {
     let err = setup
         .contract
         .try_register(&setup.grogu, &name_long, &maintainers, &url, &ipfs)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err, ContractErrors::InvalidProjectName.into());
+}
+
+#[test]
+fn register_invalid_name_chars_error() {
+    let setup = create_test_data();
+    let _id = init_contract(&setup);
+
+    // name with a dash — special chars are not allowed
+    let name_invalid = String::from_str(&setup.env, "my-project");
+    let url = String::from_str(&setup.env, "github.com/tansu");
+    let ipfs = String::from_str(&setup.env, "2ef4f49fdd8fa9dc463f1f06a094c26b88710990");
+    let maintainers = vec![&setup.env, setup.grogu.clone(), setup.mando.clone()];
+
+    let err = setup
+        .contract
+        .try_register(&setup.grogu, &name_invalid, &maintainers, &url, &ipfs)
         .unwrap_err()
         .unwrap();
     assert_eq!(err, ContractErrors::InvalidProjectName.into());

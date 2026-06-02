@@ -46,11 +46,16 @@ impl VersioningTrait for Tansu {
             sub_projects: None,
         };
         let str_len = name.len() as usize;
-        if str_len > 15 {
+        if str_len > 30 {
             panic_with_error!(&env, &errors::ContractErrors::InvalidProjectName);
         }
 
         let name_b = name.to_bytes();
+        for b in name_b.iter() {
+            if !(b.is_ascii_lowercase() || b.is_ascii_uppercase() || b.is_ascii_digit()) {
+                panic_with_error!(&env, &errors::ContractErrors::InvalidProjectName);
+            }
+        }
         let key: Bytes = env.crypto().keccak256(&name_b).into();
 
         let key_ = types::ProjectKey::Key(key.clone());
