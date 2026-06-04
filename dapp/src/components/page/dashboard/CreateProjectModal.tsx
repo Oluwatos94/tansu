@@ -848,6 +848,10 @@ ${maintainerGithubs.map((gh) => `[[PRINCIPALS]]\ngithub="${gh}"`).join("\n\n")}
                   title="Review and Submit Your Project"
                   description="Take a moment to review your project details before submitting. You can go back and make changes if needed."
                 />
+                <p className="text-sm text-secondary">
+                  <span className="font-semibold">Note:</span> Project
+                  registration requires a 5 XLM collateral deposit.
+                </p>
               </div>
               <div className="flex gap-[18px]">
                 <Button
