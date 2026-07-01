@@ -5,6 +5,11 @@ use crate::{Tansu, TansuArgs, TansuClient, TansuTrait, VersioningTrait, errors, 
 const MAX_PROJECTS_PER_PAGE: u32 = 10;
 const REGISTER_COLLATERAL: i128 = 5 * 10_000_000;
 
+/// Maximum number of evidence entries kept on-chain per (project, commit, kind).
+/// Older entries roll off once this is exceeded; the full history stays
+/// recoverable from `EvidenceSet` events via an indexer.
+const MAX_EVIDENCE: u32 = 10;
+
 #[contractimpl]
 impl VersioningTrait for Tansu {
     /// Register a new project.
@@ -218,6 +223,96 @@ impl VersioningTrait for Tansu {
         } else {
             panic_with_error!(&env, &errors::ContractErrors::InvalidKey);
         }
+    }
+
+    /// Store generic external evidence for a specific project commit and evidence kind.
+    ///
+    /// Stores only the verifiable IPFS pointer. Evidence contents remain off-chain.
+    ///
+    /// Evidence is append-only: each call adds a new entry to the history for
+    /// `(project_key, commit_hash, kind)` rather than overwriting the previous
+    /// one (e.g. successive CVE re-scans of the same commit). At most
+    /// `MAX_EVIDENCE` entries are kept on-chain; older ones roll off but remain
+    /// recoverable from `EvidenceSet` events via an indexer.
+    ///
+    /// # Arguments
+    /// * `env` - The environment object
+    /// * `maintainer` - The address of the maintainer calling this function
+    /// * `project_key` - The project key identifier
+    /// * `commit_hash` - The commit hash this evidence describes
+    /// * `kind` - The evidence category
+    /// * `cid` - The off-chain content identifier
+    ///
+    /// # Panics
+    /// * If the contract is paused
+    /// * If the project doesn't exist
+    /// * If the maintainer is not authorized
+    /// * If commit_hash or cid is empty
+    fn set_evidence(
+        env: Env,
+        maintainer: Address,
+        project_key: Bytes,
+        commit_hash: String,
+        kind: types::EvidenceKind,
+        cid: String,
+    ) {
+        Tansu::require_not_paused(env.clone());
+
+        crate::auth_maintainers(&env, &maintainer, &project_key);
+
+        if commit_hash.is_empty() || cid.is_empty() {
+            panic_with_error!(&env, &errors::ContractErrors::InvalidEvidence);
+        }
+
+        let key =
+            types::ProjectKey::Evidence(project_key.clone(), commit_hash.clone(), kind.clone());
+        let storage = env.storage().persistent();
+
+        let mut history: Vec<types::Evidence> = storage.get(&key).unwrap_or_else(|| Vec::new(&env));
+        history.push_back(types::Evidence {
+            cid: cid.clone(),
+            created_at: env.ledger().timestamp(),
+        });
+        // Keep only the most recent MAX_EVIDENCE entries; the full timeline lives in events.
+        while history.len() > MAX_EVIDENCE {
+            history.remove(0);
+        }
+        storage.set(&key, &history);
+
+        events::EvidenceSet {
+            project_key,
+            commit_hash,
+            kind,
+            cid,
+        }
+        .publish(&env);
+    }
+
+    /// Get the stored evidence history for a specific project commit and kind.
+    ///
+    /// Entries are returned oldest-first (the last element is the latest), and at
+    /// most `MAX_EVIDENCE` are kept on-chain. Returns an empty vector when no
+    /// evidence has been recorded; consumers reconstruct the full history from
+    /// `EvidenceSet` events via an indexer.
+    ///
+    /// # Arguments
+    /// * `env` - The environment object
+    /// * `project_key` - The project key identifier
+    /// * `commit_hash` - The commit hash this evidence describes
+    /// * `kind` - The evidence category
+    ///
+    /// # Returns
+    /// * `Vec<types::Evidence>` - The stored evidence pointers, oldest-first
+    fn get_evidence(
+        env: Env,
+        project_key: Bytes,
+        commit_hash: String,
+        kind: types::EvidenceKind,
+    ) -> Vec<types::Evidence> {
+        env.storage()
+            .persistent()
+            .get(&types::ProjectKey::Evidence(project_key, commit_hash, kind))
+            .unwrap_or_else(|| Vec::new(&env))
     }
 
     /// Get project information including configuration and maintainers.

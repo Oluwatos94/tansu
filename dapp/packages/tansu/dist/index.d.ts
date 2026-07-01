@@ -69,6 +69,10 @@ export interface Project {
   name: string;
   sub_projects: Option<Array<Buffer>>;
 }
+export interface Evidence {
+  cid: string;
+  created_at: u64;
+}
 export interface Proposal {
   id: u32;
   ipfs: string;
@@ -96,6 +100,10 @@ export type ProjectKey =
   | {
       tag: "LastHash";
       values: readonly [Buffer];
+    }
+  | {
+      tag: "Evidence";
+      values: readonly [Buffer, string, EvidenceKind];
     }
   | {
       tag: "Dao";
@@ -153,10 +161,6 @@ export type VoteChoice =
     };
 export type ContractKey =
   | {
-      tag: "Domain";
-      values: void;
-    }
-  | {
       tag: "Collateral";
       values: void;
     }
@@ -181,6 +185,19 @@ export interface AdminsConfig {
   admins: Array<string>;
   threshold: u32;
 }
+export type EvidenceKind =
+  | {
+      tag: "Sbom";
+      values: void;
+    }
+  | {
+      tag: "Cve";
+      values: void;
+    }
+  | {
+      tag: "Attestation";
+      values: void;
+    };
 export interface AnonymousVote {
   address: string;
   commitments: Array<Buffer>;
@@ -239,9 +256,6 @@ export declare const ContractErrors: {
   101: {
     message: string;
   };
-  102: {
-    message: string;
-  };
   103: {
     message: string;
   };
@@ -279,6 +293,9 @@ export declare const ContractErrors: {
     message: string;
   };
   211: {
+    message: string;
+  };
+  212: {
     message: string;
   };
   300: {
@@ -933,25 +950,6 @@ export interface Client {
     options?: MethodOptions,
   ) => Promise<AssembledTransaction<null>>;
   /**
-   * Construct and simulate a set_domain_contract transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Set the Soroban Domain contract.
-   *
-   * # Arguments
-   * * `env` - The environment object
-   * * `admin` - The admin address
-   * * `domain_contract` - The new domain contract
-   */
-  set_domain_contract: (
-    {
-      admin,
-      domain_contract,
-    }: {
-      admin: string;
-      domain_contract: ContractRef;
-    },
-    options?: MethodOptions,
-  ) => Promise<AssembledTransaction<null>>;
-  /**
    * Construct and simulate a get_upgrade_proposal transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Get upgrade proposal details
    */
@@ -1179,8 +1177,7 @@ export interface Client {
    * * If the project name is longer than 15 characters
    * * If the project already exists
    * * If the maintainer is not authorized
-   * * If the domain registration fails
-   * * If the maintainer doesn't own an existing domain
+   * * If the maintainer has insufficient collateral balance
    */
   register: (
     {
@@ -1243,6 +1240,36 @@ export interface Client {
     options?: MethodOptions,
   ) => Promise<AssembledTransaction<Project>>;
   /**
+   * Construct and simulate a get_evidence transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Get the stored evidence history for a specific project commit and kind.
+   *
+   * Entries are returned oldest-first (the last element is the latest), and at
+   * most `MAX_EVIDENCE` are kept on-chain. Returns an empty vector when no
+   * evidence has been recorded; consumers reconstruct the full history from
+   * `EvidenceSet` events via an indexer.
+   *
+   * # Arguments
+   * * `env` - The environment object
+   * * `project_key` - The project key identifier
+   * * `commit_hash` - The commit hash this evidence describes
+   * * `kind` - The evidence category
+   *
+   * # Returns
+   * * `Vec<types::Evidence>` - The stored evidence pointers, oldest-first
+   */
+  get_evidence: (
+    {
+      project_key,
+      commit_hash,
+      kind,
+    }: {
+      project_key: Buffer;
+      commit_hash: string;
+      kind: EvidenceKind;
+    },
+    options?: MethodOptions,
+  ) => Promise<AssembledTransaction<Array<Evidence>>>;
+  /**
    * Construct and simulate a get_projects transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Get a page of projects.
    *
@@ -1261,6 +1288,48 @@ export interface Client {
     },
     options?: MethodOptions,
   ) => Promise<AssembledTransaction<Array<Project>>>;
+  /**
+   * Construct and simulate a set_evidence transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Store generic external evidence for a specific project commit and evidence kind.
+   *
+   * Stores only the verifiable IPFS pointer. Evidence contents remain off-chain.
+   *
+   * Evidence is append-only: each call adds a new entry to the history for
+   * `(project_key, commit_hash, kind)` rather than overwriting the previous
+   * one (e.g. successive CVE re-scans of the same commit). At most
+   * `MAX_EVIDENCE` entries are kept on-chain; older ones roll off but remain
+   * recoverable from `EvidenceSet` events via an indexer.
+   *
+   * # Arguments
+   * * `env` - The environment object
+   * * `maintainer` - The address of the maintainer calling this function
+   * * `project_key` - The project key identifier
+   * * `commit_hash` - The commit hash this evidence describes
+   * * `kind` - The evidence category
+   * * `cid` - The off-chain content identifier
+   *
+   * # Panics
+   * * If the contract is paused
+   * * If the project doesn't exist
+   * * If the maintainer is not authorized
+   * * If commit_hash or cid is empty
+   */
+  set_evidence: (
+    {
+      maintainer,
+      project_key,
+      commit_hash,
+      kind,
+      cid,
+    }: {
+      maintainer: string;
+      project_key: Buffer;
+      commit_hash: string;
+      kind: EvidenceKind;
+      cid: string;
+    },
+    options?: MethodOptions,
+  ) => Promise<AssembledTransaction<null>>;
   /**
    * Construct and simulate a update_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Update the configuration of an existing project.
@@ -1395,7 +1464,6 @@ export declare class Client extends ContractClient {
     set_nqg_contract: (json: string) => AssembledTransaction<null>;
     get_admins_config: (json: string) => AssembledTransaction<AdminsConfig>;
     require_not_paused: (json: string) => AssembledTransaction<null>;
-    set_domain_contract: (json: string) => AssembledTransaction<null>;
     get_upgrade_proposal: (
       json: string,
     ) => AssembledTransaction<UpgradeProposal>;
@@ -1410,7 +1478,9 @@ export declare class Client extends ContractClient {
     register: (json: string) => AssembledTransaction<Buffer>;
     get_commit: (json: string) => AssembledTransaction<string>;
     get_project: (json: string) => AssembledTransaction<Project>;
+    get_evidence: (json: string) => AssembledTransaction<Evidence[]>;
     get_projects: (json: string) => AssembledTransaction<Project[]>;
+    set_evidence: (json: string) => AssembledTransaction<null>;
     update_config: (json: string) => AssembledTransaction<null>;
     get_sub_projects: (json: string) => AssembledTransaction<Buffer[]>;
     set_sub_projects: (json: string) => AssembledTransaction<null>;

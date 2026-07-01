@@ -1,0 +1,127 @@
+---
+sidebar_position: 7
+---
+
+# Commit Evidence
+
+Tansu lets maintainers attach generic supply-chain **evidence** to a specific project commit. Evidence is keyed by project, commit hash, and kind:
+
+```text
+(project_key, commit_hash, kind) -> IPFS CID
+```
+
+Supported kinds are `Sbom`, `Cve`, and `Attestation`.
+
+The contract intentionally stays small. Artifact contents live **off-chain on IPFS**; the contract stores only a content identifier (CID) and a ledger timestamp. It does not upload artifacts, parse SBOMs or CVEs, or verify attestations on-chain.
+
+:::note[Why no separate digest?]
+
+An IPFS CIDv1 is itself a content-addressed multihash of the bytes, so fetching by CID is self-verifying — a tampered artifact yields a different CID. A redundant digest field was therefore left out of the contract. Producer tooling still prints a `sha256` for human-readable logs, but that digest is not stored on-chain.
+
+:::
+
+## Storage model
+
+Evidence is an **append-only history**, so recording evidence again for the same commit and kind (for example a later CVE re-scan) adds an entry instead of overwriting the previous one. Each `(project_key, commit_hash, kind)` maps to a bounded list of entries:
+
+```text
+ProjectKey::Evidence(project_key, commit_hash, kind) -> Vec<Evidence { cid, created_at }>
+```
+
+`set_evidence` appends a new entry; `get_evidence` returns the whole list, oldest-first (the last element is the latest), or an empty list when nothing has been recorded. Each call also emits an `EvidenceSet` event, so the complete timeline — including entries beyond the on-chain cap — can be reconstructed from events.
+
+## Historical data and durability
+
+To keep the contract small and predictable, at most **10 entries** per `(project_key, commit_hash, kind)` are kept on-chain; once that cap is reached, the oldest entry rolls off on each new write. This bounds storage cost while still exposing the recent timeline with **no backend** — the dApp simply reads `get_evidence`. For the full history (or richer queries), index the `EvidenceSet` events off-chain.
+
+Evidence lives in Soroban _persistent_ storage, like the rest of the contract's state. If rent lapses, persistent entries are _archived, not deleted_, and can be restored on-chain by paying the rent — so historical evidence is never lost.
+
+## Publishing evidence
+
+The full producer path — generate an artifact, upload it to IPFS, and record the CID on-chain — is automated by `tools/evidence/publish.sh`.
+
+```bash
+tools/evidence/publish.sh \
+  --project-key "$TANSU_PROJECT_KEY" \
+  --commit-hash "$GITHUB_SHA" \
+  --kind sbom \
+  --file artifacts/sbom.cyclonedx.json \
+  --network testnet \
+  --contract-id "$TANSU_CONTRACT_ID" \
+  --source-account tansu-testnet
+```
+
+The script:
+
+1. validates the kind and artifact file,
+2. computes a `sha256` digest (informational, printed to the log),
+3. uploads the artifact to IPFS and captures the CID,
+4. calls `set_evidence(maintainer, project_key, commit_hash, kind, cid)` via the `stellar` CLI.
+
+### Pluggable IPFS upload
+
+The upload step is configurable so no single pinning vendor is hardcoded:
+
+- Set `TANSU_IPFS_UPLOAD_COMMAND` to any command that takes the artifact path as its final argument and prints the CID as the last token on stdout, e.g.
+
+  ```bash
+  export TANSU_IPFS_UPLOAD_COMMAND="ipfs add --cid-version=1 --quieter"
+  ```
+
+- Otherwise, if `FILEBASE_TOKEN` is set, the artifact is uploaded to Filebase's IPFS pinning RPC (the same provider used by the dApp and SBOM workflows).
+
+Use `--dry-run` to upload and print the resulting `set_evidence` invocation without sending the transaction.
+
+### Makefile shortcut
+
+```bash
+make contract_set_evidence kind=cve commit=<hash> file=artifacts/trivy-results.json
+make contract_get_evidence commit=<hash>
+```
+
+## CI workflow
+
+`.github/workflows/sbom.yml` already generates the SBOM and pins it to IPFS on version tags (`v*`) and on demand (`workflow_dispatch`). A small follow-up `record-evidence` job reuses that artifact's CID and records it on-chain with a single `set_evidence` call — it does not regenerate anything.
+
+Other evidence kinds (`Cve`, `Attestation`) are not produced in CI; publish them with `tools/evidence/publish.sh` whenever you have the artifact.
+
+The `record-evidence` job expects the following configuration in the `publish-evidence` environment:
+
+| Setting | Type | Purpose |
+| --- | --- | --- |
+| `TANSU_SECRET_KEY` | secret | Maintainer Stellar secret key (`S...`) used to sign |
+| `TANSU_CONTRACT_ID` | var | Deployed Tansu contract id (`C...`) |
+| `TANSU_PROJECT_KEY` | var | Project key (hex) |
+| `TANSU_MAINTAINER` | var | Maintainer address (`G...`) matching the secret key |
+| `TANSU_NETWORK` | var | Stellar network name (defaults to `testnet`) |
+
+## Verifying evidence
+
+Anyone can read the pointer back and verify the artifact:
+
+```bash
+# 1. fetch the evidence history from the chain (oldest-first; the last
+#    entry is the latest) and pick a CID
+stellar contract invoke \
+  --network testnet --id "$TANSU_CONTRACT_ID" \
+  -- get_evidence \
+  --project_key "$TANSU_PROJECT_KEY" \
+  --commit_hash "$COMMIT_HASH" \
+  --kind Sbom
+
+# 2. download the artifact by CID (IPFS verifies content against the CID)
+ipfs cat "$CID" > evidence.json
+```
+
+Then run artifact-specific checks:
+
+- **SBOM** — inspect the CycloneDX JSON with your SBOM tooling.
+- **CVE** — inspect the Trivy JSON output.
+- **Attestation** — the CID points to a directory holding the Sigstore bundle and its trust anchor, so verification is fully offline (no GitHub round-trip):
+
+  ```bash
+  ipfs get "$CID" -o attestation
+  gh attestation verify <artifact> \
+    --bundle attestation/attestation.sigstore.jsonl \
+    --custom-trusted-root attestation/trusted_root.jsonl
+  ```
