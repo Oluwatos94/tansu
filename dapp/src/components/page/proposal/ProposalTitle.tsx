@@ -6,6 +6,7 @@ import { connectedPublicKey } from "utils/store";
 import { hasUserVoted, toast, truncateMiddle } from "utils/utils";
 import MemberProfileModal from "components/page/dashboard/MemberProfileModal";
 import ConflictOfInterestModal from "./ConflictOfInterestModal";
+import MarkMaliciousModal from "./MarkMaliciousModal";
 import ProposalStatusSection from "./ProposalStatusSection";
 import VoteStatusBar from "./VoteStatusBar";
 import VotingResultModal from "./VotingResultModal";
@@ -20,6 +21,7 @@ interface Props {
   maintainers: string[];
   submitVote: () => void;
   executeProposal: () => void;
+  onProposalMarkedMalicious: () => void;
 }
 
 const ProposalTitle: React.FC<Props> = ({
@@ -27,12 +29,14 @@ const ProposalTitle: React.FC<Props> = ({
   maintainers,
   submitVote,
   executeProposal,
+  onProposalMarkedMalicious,
 }) => {
   const connectedAddress = useStore(connectedPublicKey);
   const [showVotingResultModal, setShowVotingResultModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [showRemoveVoteModal, setShowRemoveVoteModal] = useState(false);
   const [showConflictModal, setShowConflictModal] = useState(false);
+  const [showMarkMaliciousModal, setShowMarkMaliciousModal] = useState(false);
   const [showMemberProfile, setShowMemberProfile] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const memberQuery = useCachedQuery({
@@ -179,6 +183,18 @@ const ProposalTitle: React.FC<Props> = ({
                       Finalize Vote
                     </Button>
                   )}
+                  {(proposal?.status == "active" ||
+                    proposal?.status == "voted") &&
+                    isMaintainer && (
+                      <Button
+                        size="sm"
+                        type="tertiary"
+                        className="border-red-500! text-red-500!"
+                        onClick={() => setShowMarkMaliciousModal(true)}
+                      >
+                        Mark as Malicious
+                      </Button>
+                    )}
                 </div>
                 {proposal?.status == "active" && (
                   <div className="flex gap-3">
@@ -245,6 +261,18 @@ const ProposalTitle: React.FC<Props> = ({
           onClose={() => setShowMemberProfile(false)}
           member={memberQuery.data ?? null}
           address={proposal.proposer}
+        />
+      )}
+      {showMarkMaliciousModal && proposal && (
+        <MarkMaliciousModal
+          projectName={proposal.projectName}
+          proposalId={proposal.id}
+          proposalTitle={proposal.title}
+          onClose={() => setShowMarkMaliciousModal(false)}
+          onMarked={() => {
+            setShowMarkMaliciousModal(false);
+            onProposalMarkedMalicious();
+          }}
         />
       )}
     </>
