@@ -12,7 +12,7 @@ Q2 of the Stellar Community Fund Public Goods Award wrapped with **17 projects f
 
 ## What ran on Tansu
 
-The award program uses a dedicated Tansu deployment on mainnet. Proposals, vote commitments, and execution all land on-chain. Voters were weighted through the [Neural Quorum Governance](https://scf-public-goods-maintenance.github.io/public-goods-award/) (NQG) contract integration we built for this project — not the default badge table.
+The award program uses a dedicated Tansu project on testnet ([testnet.tansu.dev](https://testnet.tansu.dev), `stellarpg` project). Proposals, vote commitments, and execution all land on-chain. Voters were weighted through the [Neural Quorum Governance](https://scf-public-goods-maintenance.github.io/public-goods-award/) (NQG) contract integration we built for this project — not the default badge table.
 
 Anonymous voting followed the Pedersen commitment scheme we [documented last year](/blog/annonymous_voting): votes are encrypted client-side, commitments are stored on-chain, and maintainers upload tallies at execution time. The contract verifies the math before accepting the outcome. You get an auditable election without publishing who voted for what.
 
