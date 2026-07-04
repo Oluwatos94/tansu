@@ -120,8 +120,11 @@ const JoinCommunityModal: FC<{
     return err === null;
   };
 
-  const validateForm = (): boolean =>
-    validateAddressField() && validateSocialField();
+  const validateForm = (): boolean => {
+    // Skip address validation if no wallet is connected (address will be set during connection)
+    const addressValid = loadedPublicKey() ? validateAddressField() : true;
+    return addressValid && validateSocialField();
+  };
 
   const doJoinFlow = async (memberAddress: string) => {
     const gitIdentity = gitDataRef.current;
@@ -187,7 +190,9 @@ const JoinCommunityModal: FC<{
       try {
         setIsLoading(true);
         setStep(6);
-        await doJoinFlow(address || publicKey);
+        // Always use the connected wallet's address since member_address.require_auth() 
+        // requires the member to authorize their own registration
+        await doJoinFlow(publicKey);
       } catch (err: any) {
         console.error("Join community error:", err);
         setError(err?.message || "Something went wrong");
@@ -258,16 +263,30 @@ const JoinCommunityModal: FC<{
             Join the Community
           </h2>
 
-          <Input
-            label="Member Address *"
-            placeholder="Write the address as G..."
-            value={address}
-            onChange={(e) => {
-              setAddress(e.target.value);
-              setAddressError(null);
-            }}
-            error={addressError}
-          />
+          <div>
+            {loadedPublicKey() ? (
+              <>
+                <Input
+                  label="Member Address *"
+                  placeholder="Write the address as G..."
+                  value={address}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setAddressError(null);
+                  }}
+                  error={addressError}
+                  disabled={true}
+                />
+                <p className="text-sm text-secondary mt-2">
+                  Using your connected wallet address. You can only join as yourself.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-secondary mt-2">
+                Please connect your wallet to join the community. The address field will be automatically filled with your wallet address.
+              </p>
+            )}
+          </div>
 
           <div className="pt-2 md:pt-4">
             <p className="text-base font-medium text-primary mb-3 md:mb-4">
