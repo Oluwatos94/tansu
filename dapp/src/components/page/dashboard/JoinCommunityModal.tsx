@@ -190,7 +190,7 @@ const JoinCommunityModal: FC<{
       try {
         setIsLoading(true);
         setStep(6);
-        // Always use the connected wallet's address since member_address.require_auth() 
+        // Always use the connected wallet's address since member_address.require_auth()
         // requires the member to authorize their own registration
         await doJoinFlow(publicKey);
       } catch (err: any) {
@@ -278,12 +278,14 @@ const JoinCommunityModal: FC<{
                   disabled={true}
                 />
                 <p className="text-sm text-secondary mt-2">
-                  Using your connected wallet address. You can only join as yourself.
+                  Using your connected wallet address. You can only join as
+                  yourself.
                 </p>
               </>
             ) : (
               <p className="text-sm text-secondary mt-2">
-                Please connect your wallet to join the community. The address field will be automatically filled with your wallet address.
+                Please connect your wallet to join the community. The address
+                field will be automatically filled with your wallet address.
               </p>
             )}
           </div>
