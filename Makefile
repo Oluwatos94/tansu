@@ -103,6 +103,7 @@ contract_bindings: contract_build  ## Create bindings
 		--overwrite && \
 	cd dapp/packages/tansu && \
 	bun install --latest && \
+	bun update --latest && \
 	bun run build && \
 	cd ../../.. && \
 	stellar contract bindings typescript \
@@ -112,6 +113,7 @@ contract_bindings: contract_build  ## Create bindings
 		--overwrite && \
 	cd dapp/packages/scf-membership && \
 	bun install --latest && \
+	bun update --latest && \
 	bun run build && \
 	cd ../.. && \
 	bun format
