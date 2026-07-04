@@ -1,21 +1,37 @@
 use crate::{MembershipTrait, Tansu, TansuArgs, TansuClient, TansuTrait, errors, events, types};
 use soroban_sdk::{
-    Address, Bytes, Env, I256, InvokeError, String, Symbol, Vec, contractimpl, panic_with_error,
-    vec,
+    Address, Bytes, BytesN, Env, I256, InvokeError, String, Symbol, Vec, contractimpl,
+    panic_with_error, vec,
 };
 
 #[contractimpl]
 impl MembershipTrait for Tansu {
     /// Add a new member to the system with metadata.
     ///
+    /// Optionally binds a Git identity. When provided, the identity is verified
+    /// by checking an Ed25519 signature against the caller's address, public key,
+    /// and identity string. Only `git_identity` and `git_pubkey` are persisted.
+    ///
     /// # Arguments
     /// * `env` - The environment object
     /// * `member_address` - The address of the member to add
     /// * `meta` - Metadata string associated with the member (e.g., IPFS hash)
+    /// * `git_identity` - Git handle (e.g., "github:alice")
+    /// * `git_pubkey` - Ed25519 public key
+    /// * `git_sig` - Ed25519 signature
     ///
     /// # Panics
     /// * If the member already exists
-    fn add_member(env: Env, member_address: Address, meta: String) {
+    /// * If git params are incomplete (identity, key, sig must be all Some or None)
+    /// * If the signature verification fails
+    fn add_member(
+        env: Env,
+        member_address: Address,
+        meta: String,
+        git_identity: Option<String>,
+        git_pubkey: Option<BytesN<32>>,
+        git_sig: Option<BytesN<64>>,
+    ) {
         Tansu::require_not_paused(env.clone());
 
         member_address.require_auth();
@@ -28,27 +44,61 @@ impl MembershipTrait for Tansu {
             .is_some()
         {
             panic_with_error!(&env, &errors::ContractErrors::MemberAlreadyExist)
-        } else {
-            let member = types::Member {
-                projects: Vec::new(&env),
-                meta,
-            };
-            env.storage().persistent().set(&member_key_, &member);
+        }
 
-            events::MemberAdded { member_address }.publish(&env);
+        if git_identity.is_some() {
+            if git_pubkey.is_none() || git_sig.is_none() {
+                panic_with_error!(&env, &errors::ContractErrors::InvalidGitIdentity);
+            }
+            verify_git_signature(
+                &env,
+                &member_address,
+                &git_pubkey.clone().unwrap(),
+                &git_identity.clone().unwrap(),
+                &git_sig.clone().unwrap(),
+            );
+        }
+
+        events::MemberAdded {
+            member_address: member_address.clone(),
+            git_identity: git_identity.clone(),
+        }
+        .publish(&env);
+
+        let member = types::Member {
+            projects: Vec::new(&env),
+            meta,
+            git_identity,
+            git_pubkey,
         };
+        env.storage().persistent().set(&member_key_, &member);
     }
 
-    /// Update the metadata of an existing member.
+    /// Update the metadata and optionally the Git identity of an existing member.
+    ///
+    /// When `git_identity` is `Some`, the signature is verified the same way
+    /// as in `add_member` to prevent identity impersonation.
     ///
     /// # Arguments
     /// * `env` - The environment object
     /// * `member_address` - The address of the member to update
-    /// * `meta` - New metadata string associated with the member (e.g., IPFS hash)
+    /// * `meta` - New metadata string
+    /// * `git_identity` - Git handle (e.g., "github:alice")
+    /// * `git_pubkey` - Ed25519 public key
+    /// * `git_sig` - Ed25519 signature
     ///
     /// # Panics
     /// * If the member doesn't exist
-    fn update_member(env: Env, member_address: Address, meta: String) {
+    /// * If git params are incomplete (identity, key, sig must be all Some or None)
+    /// * If the signature verification fails
+    fn update_member(
+        env: Env,
+        member_address: Address,
+        meta: String,
+        git_identity: Option<String>,
+        git_pubkey: Option<BytesN<32>>,
+        git_sig: Option<BytesN<64>>,
+    ) {
         Tansu::require_not_paused(env.clone());
 
         member_address.require_auth();
@@ -62,9 +112,30 @@ impl MembershipTrait for Tansu {
             None => panic_with_error!(&env, &errors::ContractErrors::UnknownMember),
             Some(mut member) => {
                 member.meta = meta;
+
+                if git_identity.is_some() {
+                    if git_pubkey.is_none() || git_sig.is_none() {
+                        panic_with_error!(&env, &errors::ContractErrors::InvalidGitIdentity);
+                    }
+                    verify_git_signature(
+                        &env,
+                        &member_address,
+                        &git_pubkey.clone().unwrap(),
+                        &git_identity.clone().unwrap(),
+                        &git_sig.clone().unwrap(),
+                    );
+
+                    member.git_identity = git_identity.clone();
+                    member.git_pubkey = git_pubkey.clone();
+                }
+
                 env.storage().persistent().set(&member_key_, &member);
 
-                events::MemberAdded { member_address }.publish(&env);
+                events::MemberAdded {
+                    member_address,
+                    git_identity: member.git_identity.clone(),
+                }
+                .publish(&env);
             }
         };
     }
@@ -283,6 +354,52 @@ impl MembershipTrait for Tansu {
     }
 }
 
+/// Verify a Git identity binding by checking the Ed25519 signature over
+/// a plain message containing the member address, public key, and identity.
+///
+/// The signed message is:
+///   "Stellar Signed Message:\n" || member_address || git_pubkey || git_identity
+///
+/// The member_address is embedded in the message to tie the SSH key ownership
+/// proof to the specific Stellar account authenticated by `require_auth`.
+///
+/// # Arguments
+/// * `env` - The environment object
+/// * `member_address` - The address of the member binding the git identity
+/// * `git_pubkey` - The Ed25519 public key (32 bytes)
+/// * `git_identity` - The bound git identity string (e.g. "github:alice")
+/// * `sig` - The Ed25519 signature (64 bytes) over the message
+///
+/// # Panics
+/// * If the signature does not verify
+const SSHSIG_PREFIX: [u8; 33] = [
+    b'S', b'S', b'H', b'S', b'I', b'G', // magic
+    0, 0, 0, 5, // len("tansu")
+    b't', b'a', b'n', b's', b'u', // namespace
+    0, 0, 0, 0, // reserved
+    0, 0, 0, 6, // len("sha256")
+    b's', b'h', b'a', b'2', b'5', b'6', // hash algorithm
+    0, 0, 0, 32, // len(sha256 output)
+];
+
+fn verify_git_signature(
+    env: &Env,
+    member_address: &Address,
+    git_pubkey: &BytesN<32>,
+    git_identity: &String,
+    sig: &BytesN<64>,
+) {
+    let mut msg = Bytes::new(env);
+    msg.append(&Bytes::from_slice(env, b"Stellar Signed Message:\n"));
+    msg.append(&member_address.to_string().into());
+    msg.append(&Bytes::from_slice(env, &git_pubkey.to_array()));
+    msg.append(&git_identity.clone().into());
+
+    let mut tosign = Bytes::from_slice(env, &SSHSIG_PREFIX);
+    tosign.append(&env.crypto().sha256(&msg).into());
+
+    env.crypto().ed25519_verify(git_pubkey, &tosign, sig);
+}
 fn get_nqg(e: &Env, user: Address) -> u32 {
     let nqg_contract_address = crate::retrieve_contract(e, types::ContractKey::Nqg);
 
