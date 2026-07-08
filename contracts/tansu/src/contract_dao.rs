@@ -190,7 +190,7 @@ impl DaoTrait for Tansu {
         let title_len = title.len();
 
         if !((min_voting_timestamp..=max_voting_timestamp).contains(&voting_ends_at)
-            && (10..=MAX_TITLE_LENGTH).contains(&title_len)
+            && (5..=MAX_TITLE_LENGTH).contains(&title_len)
             && (32..=64).contains(&ipfs_len))
         {
             panic_with_error!(&env, &errors::ContractErrors::ProposalInputValidation);
