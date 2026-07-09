@@ -1,5 +1,6 @@
 ---
 import CommitHistory from "./CommitHistory";
+import CommitEvidenceModal from "./CommitEvidenceModal";
 import DonateModal from "./DonateModal";
 import LatestCommit from "./LatestCommit";
 import SubProjectsSection from "./SubProjectsSection";
@@ -93,15 +94,7 @@ import Button from "components/utils/Button";
           style="display:none"
           class="contents"
         >
-          <Button
-            id="last-hash-button"
-            icon="/icons/eye.svg"
-            size="xl"
-            type="secondary"
-            className="w-full sm:w-auto"
-          >
-            Last Hash
-          </Button>
+          <CommitEvidenceModal client:only />
         </div>
       </div>
     </div>
@@ -164,19 +157,16 @@ import Button from "components/utils/Button";
   </div>
 </div>
 
-<div id="last-hash-modal-container"></div>
 <div id="read-more-modal-container"></div>
 
 <script>
-  import { getLatestCommitData } from "@service/RepositoryMetadataService";
   import { getIpfsBasicLink } from "utils/ipfsFunctions";
   import { navigate } from "astro:transitions/client";
   import type { ConfigData } from "types/projectConfig";
-  import { formatDateTime } from "utils/formatTimeFunctions";
+  import type { ComponentType } from "react";
   import {
     loadConfigData,
     loadProjectInfo,
-    loadProjectLatestSha,
     loadProjectName,
   } from "../../../service/StateService";
   import {
@@ -219,28 +209,20 @@ import Button from "components/utils/Button";
         });
 
     const modules = await Promise.all([
-      loadModule<{ default: typeof import("./LastHashModal").default }>(
-        "LastHashModal",
-        "./LastHashModal",
-      ),
-      loadModule<{ default: typeof import("./ReadMoreModal").default }>(
+      loadModule<{ default: ComponentType<any> }>(
         "ReadMoreModal",
         "./ReadMoreModal",
       ),
-      loadModule<{ default: typeof import("./ContributionMetrics").default }>(
+      loadModule<{ default: ComponentType<any> }>(
         "ContributionMetrics",
         "./ContributionMetrics",
       ),
     ]);
 
-    const LastHashModal = modules[0]?.module?.default;
-    const ReadMoreModal = modules[1]?.module?.default;
-    const ContributionMetrics = modules[2]?.module?.default;
+    const ReadMoreModal = modules[0]?.module?.default;
+    const ContributionMetrics = modules[1]?.module?.default;
 
     // Create React roots for modals and components with retry logic
-    let lastHashContainer = document.getElementById(
-      "last-hash-modal-container",
-    );
     let readMoreContainer = document.getElementById(
       "read-more-modal-container",
     );
@@ -249,27 +231,17 @@ import Button from "components/utils/Button";
     );
 
     // Retry finding containers if not immediately available
-    if (
-      !lastHashContainer ||
-      !readMoreContainer ||
-      !contributionMetricsContainer
-    ) {
+    if (!readMoreContainer || !contributionMetricsContainer) {
       await new Promise((resolve) => setTimeout(resolve, 100));
-      lastHashContainer = document.getElementById("last-hash-modal-container");
       readMoreContainer = document.getElementById("read-more-modal-container");
       contributionMetricsContainer = document.getElementById(
         "contribution-metrics-section",
       );
     }
 
-    if (
-      !lastHashContainer ||
-      !readMoreContainer ||
-      !contributionMetricsContainer
-    ) {
+    if (!readMoreContainer || !contributionMetricsContainer) {
       if (import.meta.env.DEV) {
         console.error("Containers not found", {
-          lastHashContainer: !!lastHashContainer,
           readMoreContainer: !!readMoreContainer,
           contributionMetricsContainer: !!contributionMetricsContainer,
           documentReady: document.readyState,
@@ -278,31 +250,15 @@ import Button from "components/utils/Button";
       return;
     }
 
-    const lastHashRoot = createRoot(lastHashContainer);
     const readMoreRoot = createRoot(readMoreContainer);
     const contributionMetricsRoot = createRoot(contributionMetricsContainer);
 
     // Modal state
-    let isLastHashModalOpen = false;
     let isReadMoreModalOpen = false;
-    let commitData: any = null;
     let projectData: any = null;
 
     // Render function for modals
     const renderModals = () => {
-      if (LastHashModal) {
-        lastHashRoot.render(
-          React.createElement(LastHashModal, {
-            isOpen: isLastHashModalOpen,
-            onClose: () => {
-              isLastHashModalOpen = false;
-              renderModals();
-            },
-            commitData,
-          }),
-        );
-      }
-
       if (ReadMoreModal) {
         readMoreRoot.render(
           React.createElement(ReadMoreModal, {
@@ -354,14 +310,6 @@ import Button from "components/utils/Button";
     if (readMoreButton) {
       readMoreButton.addEventListener("click", () => {
         isReadMoreModalOpen = true;
-        renderModals();
-      });
-    }
-
-    const lastHashButton = document.getElementById("last-hash-button");
-    if (lastHashButton) {
-      lastHashButton.addEventListener("click", () => {
-        isLastHashModalOpen = true;
         renderModals();
       });
     }
@@ -499,7 +447,7 @@ import Button from "components/utils/Button";
           } catch {}
         }
 
-        // Show Read More + Last Hash buttons only for SOFTWARE projects
+        // Show Read More button only for SOFTWARE projects
         const readMoreWrapper = document.getElementById(
           "read-more-button-wrapper",
         );
@@ -627,114 +575,18 @@ import Button from "components/utils/Button";
         const repositoryUrl =
           configData?.officials?.githubLink || projectInfo.config.url;
 
-        if (isSoftwareProject) {
-          const latestSha = loadProjectLatestSha();
-          if (latestSha) {
-            commitData = {
-              sha: latestSha,
-              html_url: "",
-              date: "",
-              author: "",
-            };
-            try {
-              const latestCommit = await getLatestCommitData(
-                repositoryUrl,
-                latestSha,
-              );
-
-              if (latestCommit) {
-                commitData = {
-                  sha: latestCommit.sha,
-                  html_url: latestCommit.html_url,
-                  date: formatDateTime(latestCommit.commit.committer.date),
-                  author: latestCommit.commit.author.name,
-                };
-              }
-            } catch (error) {
-              if (import.meta.env.DEV) {
-                console.error("Error loading commit data:", error);
-              }
-            }
-          }
-
-          if (
-            projectInfo?.name &&
-            projectInfo?.config?.url &&
-            ContributionMetrics
-          ) {
-            contributionMetricsRoot.render(
-              React.createElement(ContributionMetrics, {
-                projectName: projectInfo.name,
-                repoUrl: repositoryUrl,
-              }),
-            );
-          }
-        }
-
-        // Hide contribution metrics for non-software projects
-        if (!isSoftwareProject) {
-          const contributionMetricsEl = document.getElementById(
-            "contribution-metrics-section",
+        if (
+          isSoftwareProject &&
+          projectInfo?.name &&
+          projectInfo?.config?.url &&
+          ContributionMetrics
+        ) {
+          contributionMetricsRoot.render(
+            React.createElement(ContributionMetrics, {
+              projectName: projectInfo.name,
+              repoUrl: repositoryUrl,
+            }),
           );
-          if (contributionMetricsEl) {
-            contributionMetricsEl.style.display = "none";
-          }
-        }
-        // Set up project data for ReadMoreModal
-        projectData = {
-          name: projectInfo.name,
-          description: configData?.description || "",
-          organization: configData?.organizationName || "",
-          logoImageLink: configData?.logoImageLink
-            ? convertGitHubLink(configData.logoImageLink)
-            : "",
-          githubUrl:
-            configData?.officials?.githubLink || projectInfo.config.url,
-          websiteUrl: configData?.officials?.websiteLink,
-        };
-
-        if (isSoftwareProject) {
-          const latestSha = loadProjectLatestSha();
-          if (latestSha) {
-            commitData = {
-              sha: latestSha,
-              html_url: "",
-              date: "",
-              author: "",
-            };
-            try {
-              const latestCommit = await getLatestCommitData(
-                repositoryUrl,
-                latestSha,
-              );
-
-              if (latestCommit) {
-                commitData = {
-                  sha: latestCommit.sha,
-                  html_url: latestCommit.html_url,
-                  date: formatDateTime(latestCommit.commit.committer.date),
-                  author: latestCommit.commit.author.name,
-                };
-              }
-            } catch (error) {
-              if (import.meta.env.DEV) {
-                console.error("Error loading commit data:", error);
-              }
-            }
-          }
-
-          if (
-            projectInfo?.name &&
-            projectInfo?.config?.url &&
-            ContributionMetrics
-          ) {
-            contributionMetricsRoot.render(
-              React.createElement(ContributionMetrics, {
-                projectName: projectInfo.name,
-                repoUrl: repositoryUrl,
-              }),
-            );
-          }
         }
 
         // Hide contribution metrics for non-software projects
