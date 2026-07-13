@@ -90,7 +90,7 @@ import Button from "components/utils/Button";
         </div>
         <!-- Hidden by default; shown only for SOFTWARE projects once config loads -->
         <div
-          id="last-hash-button-wrapper"
+          id="code-finality-button-wrapper"
           style="display:none"
           class="contents"
         >
@@ -451,15 +451,15 @@ import Button from "components/utils/Button";
         const readMoreWrapper = document.getElementById(
           "read-more-button-wrapper",
         );
-        const lastHashWrapper = document.getElementById(
-          "last-hash-button-wrapper",
+        const codeFinalityWrapper = document.getElementById(
+          "code-finality-button-wrapper",
         );
 
         if (readMoreWrapper) {
           readMoreWrapper.style.display = isSoftwareProject ? "" : "none";
         }
-        if (lastHashWrapper) {
-          lastHashWrapper.style.display = isSoftwareProject ? "" : "none";
+        if (codeFinalityWrapper) {
+          codeFinalityWrapper.style.display = isSoftwareProject ? "" : "none";
         }
 
         // Show LatestCommit only for SOFTWARE projects

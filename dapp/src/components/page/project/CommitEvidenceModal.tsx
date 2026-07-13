@@ -4,7 +4,7 @@
  * Replaces the old LastHashModal. Displays the latest (or manually specified)
  * commit hash along with its on-chain evidence (SBOM, CVE, Attestation)
  * grouped by kind. Maintainers can add new evidence via file upload → IPFS
- * → on-chain set_evidence.
+ * → on-chain set_evidence, and update the commit hash on-chain.
  *
  * Evidence is append-only: no edit or remove functionality.
  */
@@ -20,12 +20,14 @@ import { getIpfsUrl } from "utils/ipfsFunctions";
 import { formatDate } from "utils/formatTimeFunctions";
 import { configData as configDataStore, projectInfoLoaded } from "utils/store";
 import { toast } from "utils/utils";
-import { getRepositoryIconInfo } from "utils/editLinkFunctions";
 import Button from "components/utils/Button";
 import CopyButton from "components/utils/CopyButton";
 import Modal from "components/utils/Modal";
 import { setEvidenceWithIpfsUpload } from "@service/EvidenceUploadFlow";
+import { commitHash } from "@service/ContractService";
 import { useEffect, useState, useCallback } from "react";
+import { getProject } from "@service/ReadContractService";
+import { setProject } from "@service/StateService";
 
 const EVIDENCE_KINDS: { tag: EvidenceKindTag; label: string }[] = [
   { tag: "Sbom", label: "SBOM" },
@@ -41,13 +43,14 @@ const CommitEvidenceModal = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   // Commit hash state
-  const [commitHash, setCommitHash] = useState("");
+  const [commitHashValue, setCommitHashValue] = useState("");
   const [commitData, setCommitData] = useState<{
     sha: string;
     html_url: string;
     date: string;
     author: string;
   } | null>(null);
+  const [isUpdatingHash, setIsUpdatingHash] = useState(false);
 
   // Evidence state
   const [evidence, setEvidence] = useState<CommitEvidence[]>([]);
@@ -65,13 +68,15 @@ const CommitEvidenceModal = () => {
   const projectName = loadProjectName();
   const repositoryUrl =
     configData?.officials?.githubLink || projectInfo?.config?.url;
-  const repositoryIcon = getRepositoryIconInfo(repositoryUrl);
 
   const connectedPublicKey = loadedPublicKey();
   const isMaintainer =
     connectedPublicKey && projectInfo
       ? projectInfo.maintainers.includes(connectedPublicKey)
       : false;
+
+  // Track whether hash was manually changed by the user
+  const [hashManuallyChanged, setHashManuallyChanged] = useState(false);
 
   // ── Data loading ────────────────────────────────────────────────────
 
@@ -81,11 +86,12 @@ const CommitEvidenceModal = () => {
     // Get the latest commit hash from on-chain
     const latestSha = await getProjectHash();
     if (!latestSha) {
-      setCommitHash("");
+      setCommitHashValue("");
       setCommitData(null);
       return;
     }
-    setCommitHash(latestSha);
+    setCommitHashValue(latestSha);
+    setHashManuallyChanged(false);
 
     // Try to enrich with GitHub metadata
     if (!repositoryUrl) return;
@@ -106,7 +112,7 @@ const CommitEvidenceModal = () => {
   }, [projectName, repositoryUrl]);
 
   const loadEvidence = useCallback(async () => {
-    if (!projectName || !commitHash.trim()) {
+    if (!projectName || !commitHashValue.trim()) {
       setEvidence([]);
       return;
     }
@@ -117,7 +123,7 @@ const CommitEvidenceModal = () => {
       // Fetch full append-only history for each evidence kind in parallel
       const historyByKind = await Promise.all(
         EVIDENCE_KINDS.map((kind) =>
-          getEvidenceHistory(projectName, commitHash, kind.tag).catch(
+          getEvidenceHistory(projectName, commitHashValue, kind.tag).catch(
             () => [] as CommitEvidence[],
           ),
         ),
@@ -130,7 +136,7 @@ const CommitEvidenceModal = () => {
     } finally {
       setIsEvidenceLoading(false);
     }
-  }, [projectName, commitHash]);
+  }, [projectName, commitHashValue]);
 
   // Reload everything when the modal opens
   useEffect(() => {
@@ -142,7 +148,7 @@ const CommitEvidenceModal = () => {
   useEffect(() => {
     if (!isOpen) return;
     loadEvidence();
-  }, [isOpen, commitHash, loadEvidence]);
+  }, [isOpen, commitHashValue, loadEvidence]);
 
   // ── Evidence grouped by kind ────────────────────────────────────────
 
@@ -158,7 +164,7 @@ const CommitEvidenceModal = () => {
       toast.error("Add Evidence", "No project selected.");
       return;
     }
-    if (!commitHash.trim()) {
+    if (!commitHashValue.trim()) {
       toast.error("Add Evidence", "No commit hash specified.");
       return;
     }
@@ -171,7 +177,7 @@ const CommitEvidenceModal = () => {
     try {
       const cid = await setEvidenceWithIpfsUpload(
         projectName,
-        commitHash,
+        commitHashValue,
         selectedKind,
         selectedFile,
       );
@@ -185,6 +191,7 @@ const CommitEvidenceModal = () => {
 
       // Reset upload form
       setSelectedFile(null);
+      setSelectedKind("Sbom");
       // Reset file input value
       const fileInput = document.getElementById(
         "evidence-file-input",
@@ -203,12 +210,54 @@ const CommitEvidenceModal = () => {
     }
   };
 
+  // ── Update hash on-chain handler ────────────────────────────────────
+
+  const handleUpdateHash = async () => {
+    if (!commitHashValue.trim()) {
+      toast.error("Update Hash", "Please enter a commit hash.");
+      return;
+    }
+
+    setIsUpdatingHash(true);
+    try {
+      await commitHash(commitHashValue);
+
+      // Refresh project data
+      try {
+        const project = await getProject();
+        if (project && project.name && project.config && project.maintainers) {
+          setProject(project);
+        }
+      } catch (refreshError) {
+        if (import.meta.env.DEV)
+          console.error("Error refreshing project data:", refreshError);
+      }
+
+      toast.success(
+        "Hash Updated",
+        "Commit hash has been updated on-chain. Evidence will reload.",
+      );
+
+      // Reload evidence for the new hash
+      await loadEvidence();
+      setHashManuallyChanged(false);
+    } catch (err: any) {
+      toast.error(
+        "Update Hash",
+        err?.message || "Failed to update commit hash.",
+      );
+    } finally {
+      setIsUpdatingHash(false);
+    }
+  };
+
   // ── Handlers ────────────────────────────────────────────────────────
 
   const handleClose = () => {
     setIsOpen(false);
     setLastUploadedCid(null);
     setSelectedFile(null);
+    setHashManuallyChanged(false);
   };
 
   const handleOpen = () => {
@@ -216,8 +265,9 @@ const CommitEvidenceModal = () => {
   };
 
   const handleHashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCommitHash(e.target.value);
+    setCommitHashValue(e.target.value);
     setLastUploadedCid(null);
+    setHashManuallyChanged(true);
   };
 
   const handleKindChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -232,16 +282,16 @@ const CommitEvidenceModal = () => {
 
   return (
     <>
-      {/* Trigger button – replaces the old "Last Hash" button */}
+      {/* Trigger button */}
       <Button
         id="commit-evidence-button"
-        icon={repositoryIcon?.src || "/icons/eye.svg"}
+        icon="/icons/git.svg"
         size="xl"
         type="secondary"
         className="w-full sm:w-auto"
         onClick={handleOpen}
       >
-        Hash &amp; Evidence
+        Code Finality
       </Button>
 
       {isOpen && (
@@ -256,11 +306,12 @@ const CommitEvidenceModal = () => {
               />
               <div className="flex-grow">
                 <h6 className="text-xl sm:text-2xl font-medium text-primary">
-                  Commit Hash &amp; Evidence
+                  Code Finality
                 </h6>
                 <p className="text-sm text-tertiary mt-1">
-                  View or manually specify a commit hash and its attached
-                  evidence.
+                  Review evidence (SBOM, CVE, Attestation) linked to the commit
+                  hash. Maintainers can add new evidence or update the hash
+                  on-chain.
                 </p>
               </div>
             </div>
@@ -274,18 +325,18 @@ const CommitEvidenceModal = () => {
                     type="text"
                     className="flex-1 bg-transparent text-base sm:text-xl text-primary outline-none border-none font-mono"
                     placeholder="Enter commit hash"
-                    value={commitHash}
+                    value={commitHashValue}
                     onChange={handleHashChange}
                   />
                 ) : (
                   <p className="flex-1 text-base sm:text-xl text-primary break-all font-mono">
-                    {commitHash
-                      ? `${commitHash.slice(0, 24)}…`
+                    {commitHashValue
+                      ? `${commitHashValue.slice(0, 24)}…`
                       : "No hash available"}
                   </p>
                 )}
                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                  <CopyButton textToCopy={commitHash} size="sm" />
+                  <CopyButton textToCopy={commitHashValue} size="sm" />
                   {commitData?.html_url && (
                     <a
                       className="p-2 hover:bg-gray-100 rounded"
@@ -303,6 +354,17 @@ const CommitEvidenceModal = () => {
                   )}
                 </div>
               </div>
+
+              {/* Hash-change note – shown when maintainer edits the hash */}
+              {hashManuallyChanged && isMaintainer && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                  <span className="font-medium">Note:</span>
+                  <span>
+                    Evidence is per-commit. Changing the hash will reload
+                    evidence for the new hash.
+                  </span>
+                </div>
+              )}
 
               {/* Commit metadata (date + author) */}
               {commitData && (
@@ -326,8 +388,24 @@ const CommitEvidenceModal = () => {
                 </div>
               )}
 
+              {/* Update hash button (maintainers only) */}
+              {isMaintainer && (
+                <div className="flex justify-end mt-1">
+                  <Button
+                    onClick={handleUpdateHash}
+                    isLoading={isUpdatingHash}
+                    disabled={isUpdatingHash || !commitHashValue.trim()}
+                    size="sm"
+                    type="secondary"
+                    className="w-full sm:w-auto"
+                  >
+                    {isUpdatingHash ? "Saving…" : "Save Hash to Chain"}
+                  </Button>
+                </div>
+              )}
+
               {/* Note for empty hash */}
-              {!commitHash.trim() && (
+              {!commitHashValue.trim() && (
                 <p className="text-sm text-amber-600">
                   No commit hash found on-chain. Enter a hash manually to view
                   or attach evidence.
@@ -381,60 +459,70 @@ const CommitEvidenceModal = () => {
                           </span>
                         </div>
                         <div className="flex flex-col gap-1.5 pl-6">
-                          {group.items.map((item, idx) => {
-                            const ipfsUrl = getIpfsUrl(item.cid);
-                            const ts = Number(item.created_at);
-                            const createdAt =
-                              ts > 0
-                                ? new Date(ts * 1000).toLocaleDateString()
-                                : "";
-                            const isLatest =
-                              idx === group.items.length - 1 &&
-                              group.items.length > 1;
-                            return (
-                              <div
-                                key={`${item.cid}-${idx}`}
-                                className={`flex flex-col gap-1 py-1.5 px-3 rounded text-sm ${
-                                  isLatest
-                                    ? "bg-[#FFEFA8] border border-yellow-300"
-                                    : "bg-zinc-50"
-                                }`}
-                              >
-                                <div className="flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-2">
-                                  <code className="text-xs text-secondary break-all font-mono leading-relaxed sm:flex-1 sm:min-w-0">
-                                    {item.cid}
-                                  </code>
-                                  <div className="flex items-center gap-1 sm:gap-2 sm:flex-shrink-0 justify-end sm:justify-start">
-                                    <CopyButton textToCopy={item.cid} size="sm" />
-                                    {createdAt && (
-                                      <span className="text-xs text-tertiary whitespace-nowrap">
-                                        {createdAt}
-                                      </span>
-                                    )}
-                                    {isLatest && (
-                                      <span className="text-[10px] font-semibold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                                        Latest
-                                      </span>
-                                    )}
-                                    {ipfsUrl ? (
-                                      <Button
-                                        type="secondary"
-                                        icon="/icons/ipfs.svg"
-                                        onClick={() => window.open(ipfsUrl, "_blank")}
+                          {group.items
+                            .slice() // copy to avoid mutating state
+                            .sort(
+                              (a, b) =>
+                                Number(a.created_at) - Number(b.created_at),
+                            )
+                            .map((item, idx, sorted) => {
+                              const ipfsUrl = getIpfsUrl(item.cid);
+                              const ts = Number(item.created_at);
+                              const createdAt =
+                                ts > 0
+                                  ? new Date(ts * 1000).toLocaleDateString()
+                                  : "";
+                              const isLatest =
+                                idx === sorted.length - 1 && sorted.length > 1;
+                              return (
+                                <div
+                                  key={`${item.kind}-${item.cid}`}
+                                  className={`flex flex-col gap-1 py-1.5 px-3 rounded text-sm ${
+                                    isLatest
+                                      ? "bg-[#FFEFA8] border border-yellow-300"
+                                      : "bg-zinc-50"
+                                  }`}
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                                    <code className="text-xs text-secondary break-all font-mono leading-relaxed sm:flex-1 sm:min-w-0">
+                                      {item.cid}
+                                    </code>
+                                    <div className="flex items-center gap-1 sm:gap-2 sm:flex-shrink-0 justify-end sm:justify-start">
+                                      <CopyButton
+                                        textToCopy={item.cid}
                                         size="sm"
-                                      >
-                                        View IPFS
-                                      </Button>
-                                    ) : (
-                                      <span className="text-xs text-red-500">
-                                        Invalid CID
-                                      </span>
-                                    )}
+                                      />
+                                      {createdAt && (
+                                        <span className="text-xs text-tertiary whitespace-nowrap">
+                                          {createdAt}
+                                        </span>
+                                      )}
+                                      {isLatest && (
+                                        <span className="text-[10px] font-semibold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                          Latest
+                                        </span>
+                                      )}
+                                      {ipfsUrl ? (
+                                        <Button
+                                          type="secondary"
+                                          icon="/icons/ipfs.svg"
+                                          onClick={() =>
+                                            window.open(ipfsUrl, "_blank")
+                                          }
+                                          size="sm"
+                                        >
+                                          View IPFS
+                                        </Button>
+                                      ) : (
+                                        <span className="text-xs text-red-500">
+                                          Invalid CID
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
                         </div>
                       </div>
                     ),
@@ -501,7 +589,7 @@ const CommitEvidenceModal = () => {
                     onClick={handleAddEvidence}
                     isLoading={isUploading}
                     disabled={
-                      isUploading || !selectedFile || !commitHash.trim()
+                      isUploading || !selectedFile || !commitHashValue.trim()
                     }
                     className="w-full sm:w-auto"
                   >
@@ -511,14 +599,33 @@ const CommitEvidenceModal = () => {
 
                 {/* Success banner – shown after a CID is uploaded */}
                 {lastUploadedCid && !isUploading && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm">
-                    <span className="text-green-700 font-medium text-xs flex-shrink-0">
-                      ✓ Uploaded:
-                    </span>
-                    <code className="text-xs text-green-800 break-all font-mono flex-1 min-w-0">
-                      {lastUploadedCid}
-                    </code>
-                    <CopyButton textToCopy={lastUploadedCid} size="sm" />
+                  <div className="flex items-center gap-3 px-4 py-3 bg-green-100 border-2 border-green-400 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                      <svg
+                        className="w-5 h-5 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-green-800">
+                        Evidence uploaded successfully
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <code className="text-xs sm:text-sm font-mono text-green-700 bg-green-50 px-2 py-1 rounded break-all">
+                          {lastUploadedCid}
+                        </code>
+                        <CopyButton textToCopy={lastUploadedCid} size="sm" />
+                      </div>
+                    </div>
                   </div>
                 )}
 
