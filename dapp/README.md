@@ -31,7 +31,8 @@ A decentralized application built on Soroban for governance and voting, powered 
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/Consulting-Manao/tansu.git
+   rad clone rad:zssaAF91kxuquZmZCV2SiK2FNX6s
+   # git clone https://radicle.consulting-manao.com/zssaAF91kxuquZmZCV2SiK2FNX6s.git tansu
    cd tansu/dapp
    ```
 
@@ -65,13 +66,16 @@ The dapp fetches repository metadata directly from provider APIs in the browser.
 
 - Supported public providers are GitHub, GitLab, Bitbucket, Codeberg, and Gitea.
 - Repository metadata features are intentionally limited to those provider APIs.
-- Access is unauthenticated only, so metadata is limited to public repositories and subject to provider CORS and rate limits.
+- Access is unauthenticated only, so metadata is limited to public repositories and subject to provider CORS and rate
+  limits.
 
 ## Validation
 
 Verified in this workspace:
 
-- `bunx vitest run src/schemas/validation.test.ts src/utils/contractErrors.test.ts src/utils/errorHandler.test.ts src/utils/extractConfigData.test.ts`
+-
+
+`bunx vitest run src/schemas/validation.test.ts src/utils/contractErrors.test.ts src/utils/errorHandler.test.ts src/utils/extractConfigData.test.ts`
 
 ### Technology Stack
 

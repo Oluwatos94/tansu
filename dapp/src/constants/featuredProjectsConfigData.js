@@ -4,12 +4,13 @@ export const featuredProjectsConfigData = [
     projectFullName: "Tansu - Git on Stellar",
     projectType: "SOFTWARE",
     logoImageLink:
-      "https://github.com/Consulting-Manao/tansu/blob/main/website/static/img/logo.svg",
+      "https://radicle.consulting-manao.com/raw/rad:zssaAF91kxuquZmZCV2SiK2FNX6s/536993606237ef6890d202691dbfb3fbacf15c52/website/static/img/logo.svg",
     description: "Decentralized project governance on Stellar",
     organizationName: "Consulting Manao GmbH",
     officials: {
       websiteLink: "https://tansu.dev",
-      githubLink: "https://github.com/Consulting-Manao/tansu",
+      githubLink:
+        "https://radicle.network/nodes/radicle.consulting-manao.com/rad:zssaAF91kxuquZmZCV2SiK2FNX6s",
     },
     socialLinks: {},
     authorHandles: ["tupui"],

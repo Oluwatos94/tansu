@@ -253,7 +253,7 @@ contract_register:
     	--maintainer $(shell stellar keys address $(admin)) \
     	--name tansu \
     	--maintainers '["$(shell stellar keys address $(admin))", "$(shell stellar keys address grogu-$(network))"]' \
-    	--url https://github.com/Consulting-Manao/tansu \
+    	--url https://radicle.network/nodes/radicle.consulting-manao.com/rad%3AzssaAF91kxuquZmZCV2SiK2FNX6s \
     	--ipfs bafybeicnbbhyc4vhbuokk57lrmg4hkbvkmtcp6p3ubaptbus6kl2idthki
 
 contract_commit:

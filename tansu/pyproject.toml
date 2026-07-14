@@ -65,9 +65,9 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://github.com/Consulting-Manao/tansu"
-documentation = "https://github.com/Consulting-Manao/tansu"
-source = "https://github.com/Consulting-Manao/tansu"
+homepage = "https://radicle.network/nodes/radicle.consulting-manao.com/rad:zssaAF91kxuquZmZCV2SiK2FNX6s"
+documentation = "https://radicle.network/nodes/radicle.consulting-manao.com/rad:zssaAF91kxuquZmZCV2SiK2FNX6s"
+source = "https://radicle.network/nodes/radicle.consulting-manao.com/rad:zssaAF91kxuquZmZCV2SiK2FNX6s"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tansu"]
