@@ -10,7 +10,7 @@
  */
 
 import { useStore } from "@nanostores/react";
-import { getLatestCommitData } from "@service/RepositoryMetadataService";
+import { getLatestCommitData, getLatestCommitHash } from "@service/RepositoryMetadataService";
 import { getProjectHash } from "@service/ReadContractService";
 import { loadProjectInfo, loadProjectName } from "@service/StateService";
 import { loadedPublicKey } from "@service/walletService";
@@ -25,7 +25,7 @@ import CopyButton from "components/utils/CopyButton";
 import Modal from "components/utils/Modal";
 import { setEvidenceWithIpfsUpload } from "@service/EvidenceUploadFlow";
 import { commitHash } from "@service/ContractService";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getProject } from "@service/ReadContractService";
 import { setProject } from "@service/StateService";
 
@@ -78,6 +78,10 @@ const CommitEvidenceModal = () => {
   // Track whether hash was manually changed by the user
   const [hashManuallyChanged, setHashManuallyChanged] = useState(false);
 
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const onChainHashRef = useRef("");
+
   // ── Data loading ────────────────────────────────────────────────────
 
   const loadCommitData = useCallback(async () => {
@@ -91,7 +95,9 @@ const CommitEvidenceModal = () => {
       return;
     }
     setCommitHashValue(latestSha);
+    onChainHashRef.current = latestSha;
     setHashManuallyChanged(false);
+    setIsEditing(false);
 
     // Try to enrich with GitHub metadata
     if (!repositoryUrl) return;
@@ -241,6 +247,8 @@ const CommitEvidenceModal = () => {
       // Reload evidence for the new hash
       await loadEvidence();
       setHashManuallyChanged(false);
+      setIsEditing(false);
+      onChainHashRef.current = commitHashValue;
     } catch (err: any) {
       toast.error(
         "Update Hash",
@@ -258,6 +266,7 @@ const CommitEvidenceModal = () => {
     setLastUploadedCid(null);
     setSelectedFile(null);
     setHashManuallyChanged(false);
+    setIsEditing(false);
   };
 
   const handleOpen = () => {
@@ -268,6 +277,27 @@ const CommitEvidenceModal = () => {
     setCommitHashValue(e.target.value);
     setLastUploadedCid(null);
     setHashManuallyChanged(true);
+  };
+
+  const handleStartEditing = async () => {
+    setIsEditing(true);
+    if (repositoryUrl) {
+      try {
+        const latestHash = await getLatestCommitHash(repositoryUrl);
+        if (latestHash) {
+          setCommitHashValue(latestHash);
+          setHashManuallyChanged(true);
+        }
+      } catch {
+        // Keep current hash if fetch fails
+      }
+    }
+  };
+
+  const handleCancelEditing = () => {
+    setIsEditing(false);
+    setCommitHashValue(onChainHashRef.current);
+    setHashManuallyChanged(false);
   };
 
   const handleKindChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -320,7 +350,7 @@ const CommitEvidenceModal = () => {
             <div className="flex flex-col gap-3">
               <p className="text-sm font-semibold text-primary">Commit Hash</p>
               <div className="p-2 sm:p-[12px_18px] flex items-center gap-2 sm:gap-[18px] bg-[#FFEFA8] w-full">
-                {isMaintainer ? (
+                {isMaintainer && isEditing ? (
                   <input
                     type="text"
                     className="flex-1 bg-transparent text-base sm:text-xl text-primary outline-none border-none font-mono"
@@ -331,7 +361,9 @@ const CommitEvidenceModal = () => {
                 ) : (
                   <p className="flex-1 text-base sm:text-xl text-primary break-all font-mono">
                     {commitHashValue
-                      ? `${commitHashValue.slice(0, 24)}…`
+                      ? isMaintainer
+                        ? commitHashValue
+                        : `${commitHashValue.slice(0, 24)}…`
                       : "No hash available"}
                   </p>
                 )}
@@ -352,19 +384,22 @@ const CommitEvidenceModal = () => {
                       />
                     </a>
                   )}
+                  {isMaintainer && (
+                    <button
+                      type="button"
+                      onClick={isEditing ? handleCancelEditing : handleStartEditing}
+                      className="p-2 hover:bg-gray-100 rounded transition-colors duration-200"
+                      aria-label={isEditing ? "Cancel editing" : "Edit commit hash"}
+                    >
+                      <img
+                        src={isEditing ? "/icons/cancel.svg" : "/icons/edit.svg"}
+                        className="w-4 h-4"
+                        alt=""
+                      />
+                    </button>
+                  )}
                 </div>
               </div>
-
-              {/* Hash-change note – shown when maintainer edits the hash */}
-              {hashManuallyChanged && isMaintainer && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-                  <span className="font-medium">Note:</span>
-                  <span>
-                    Evidence is per-commit. Changing the hash will reload
-                    evidence for the new hash.
-                  </span>
-                </div>
-              )}
 
               {/* Commit metadata (date + author) */}
               {commitData && (
