@@ -10,7 +10,10 @@
  */
 
 import { useStore } from "@nanostores/react";
-import { getLatestCommitData, getLatestCommitHash } from "@service/RepositoryMetadataService";
+import {
+  getLatestCommitData,
+  getLatestCommitHash,
+} from "@service/RepositoryMetadataService";
 import { getProjectHash } from "@service/ReadContractService";
 import { loadProjectInfo, loadProjectName } from "@service/StateService";
 import { loadedPublicKey } from "@service/walletService";
@@ -76,7 +79,7 @@ const CommitEvidenceModal = () => {
       : false;
 
   // Track whether hash was manually changed by the user
-  const [hashManuallyChanged, setHashManuallyChanged] = useState(false);
+  const [, setHashManuallyChanged] = useState(false);
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -387,12 +390,18 @@ const CommitEvidenceModal = () => {
                   {isMaintainer && (
                     <button
                       type="button"
-                      onClick={isEditing ? handleCancelEditing : handleStartEditing}
+                      onClick={
+                        isEditing ? handleCancelEditing : handleStartEditing
+                      }
                       className="p-2 hover:bg-gray-100 rounded transition-colors duration-200"
-                      aria-label={isEditing ? "Cancel editing" : "Edit commit hash"}
+                      aria-label={
+                        isEditing ? "Cancel editing" : "Edit commit hash"
+                      }
                     >
                       <img
-                        src={isEditing ? "/icons/cancel.svg" : "/icons/edit.svg"}
+                        src={
+                          isEditing ? "/icons/cancel.svg" : "/icons/edit.svg"
+                        }
                         className="w-4 h-4"
                         alt=""
                       />
