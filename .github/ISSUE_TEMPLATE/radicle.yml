@@ -1,8 +1,0 @@
-name: Please use Radicle
-description: Submit your issues to Radicle
-body:
-  - type: markdown
-    attributes:
-      value: |
-      https://radicle.network/nodes/radicle.consulting-manao.com/rad:zssaAF91kxuquZmZCV2SiK2FNX6s/issues
-      
